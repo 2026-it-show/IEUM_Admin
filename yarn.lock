@@ -626,6 +626,11 @@ cross-spawn@^7.0.6:
     shebang-command "^2.0.0"
     which "^2.0.1"
 
+crypto-js@^4.1.1:
+  version "4.2.0"
+  resolved "https://registry.yarnpkg.com/crypto-js/-/crypto-js-4.2.0.tgz#4d931639ecdfd12ff80e8186dba6af2c2e856631"
+  integrity sha512-KALDyEYgpY+Rlob/iriUtjV6d5Eq+Y191A5g4UqLAi8CyGP9N1+FdVbkc1SxKc2r4YAYqG8JzO2KGL+AizD70Q==
+
 css-color-keywords@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/css-color-keywords/-/css-color-keywords-1.0.0.tgz#fea2616dc676b2962686b3af8dbdbe180b244e05"
@@ -1042,6 +1047,13 @@ minimatch@^10.2.2, minimatch@^10.2.4:
   integrity sha512-MULkVLfKGYDFYejP07QOurDLLQpcjk7Fw+7jXS2R2czRQzR56yHRveU5NDJEOviH+hETZKSkIk5c+T23GjFUMg==
   dependencies:
     brace-expansion "^5.0.5"
+
+mirim-oauth-react@1.1.1:
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/mirim-oauth-react/-/mirim-oauth-react-1.1.1.tgz#b1fb377d71357bc2cb2b58857917d3eea6396611"
+  integrity sha512-sZDCx6YZfGZD0BkUyHcgXpmc5mqYmBoIGCPtKEpioRlcdom9S06m8kLMODXnP5i26cCe8oN3g1yO5+YVJAav2Q==
+  dependencies:
+    crypto-js "^4.1.1"
 
 ms@^2.1.3:
   version "2.1.3"

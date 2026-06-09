@@ -1,38 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import { useMirimOAuth } from 'mirim-oauth-react';
+import { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { useNavigate } from 'react-router-dom'; 
-
+import { useNavigate } from 'react-router-dom';
+import { loginWithMirimToken } from '../../api/adminApi';
 
 const OuterContainer = styled.div`
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, #F25C69, #CD3F4B);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  min-height: 100dvh;
+  background: linear-gradient(134.188deg, #f25c69 2.1959%, #cd3f4b 97.804%);
+  display: grid;
+  place-items: center;
   overflow: hidden;
 `;
 
 const InnerCanvas = styled.div`
+  position: relative;
   width: 1920px;
   height: 1080px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  flex-shrink: 0;
-  transform-origin: center center; 
-  
-  /* 3. transition 속성을 완전히 제거하여 그 어떤 애니메이션도 작동하지 않게 만듭니다. */
+  transform: scale(min(100vw / 1920, 100dvh / 1080));
+  transform-origin: center;
 `;
 
 const LogoWrapper = styled.div`
-  margin-top: 246px; 
+  position: absolute;
+  left: 465px;
+  top: 246px;
   width: 990px;
   height: 90px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
 `;
 
 const Logo = styled.img`
@@ -42,88 +35,97 @@ const Logo = styled.img`
 `;
 
 const LoginButton = styled.button`
-  width: 679px;       
+  position: absolute;
+  left: 621px;
+  top: 687px;
+  width: 679px;
   height: 106px;
-  border-radius: 71px; 
+  border-radius: 71px;
   background-color: rgba(255, 255, 255, 0.9);
-  border: none;
-  margin-top: 250px;   
+  border: 1px solid #d9d9d9;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 50px;
   cursor: pointer;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.75;
+  }
+
 `;
 
-const GoogleIcon = styled.svg`
-  margin-right: 20px;
+const MirimLogo = styled.img`
+  width: 74px;
+  height: 74px;
+  border-radius: 84px;
+  object-fit: cover;
 `;
 
 const ButtonText = styled.span`
-  font-size: 32px; 
+  width: 384px;
+  font-size: 32px;
   font-weight: 500;
   color: #000000;
 `;
 
 const Description = styled.p`
-  font-size: 24px;   
-  color: #FAB8BE;
+  position: absolute;
+  left: 698px;
+  top: 871px;
+  width: 525px;
+  font-size: 24px;
+  color: #fab8be;
   text-align: center;
-  margin-top: 45px;
-  line-height: 1.6;
-  font-weight: 400; 
+  line-height: 40px;
+  font-weight: 400;
 `;
 
-const Login: React.FC = () => {
-  const navigate = useNavigate(); 
+const TokenPanel = styled.form`
+  position: absolute;
+  left: 621px;
+  top: 812px;
+  width: 679px;
+  display: grid;
+  gap: 10px;
+`;
 
-  // 1. 초기값 선언할 때 브라우저 창 크기를 즉시 계산
-  const [scale, setScale] = useState(() => {
-    const widthScale = window.innerWidth / 1920;
-    const heightScale = window.innerHeight / 1080;
-    const minScale = Math.min(widthScale, heightScale);
-    return minScale > 1 ? 1 : minScale;
-  });
+const TokenInput = styled.input`
+  width: 100%;
+  min-height: 48px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.94);
+  padding: 0 14px;
+`;
 
-  // 2. 창 크기를 '조절할 때만' 비율을 업데이트
-  useEffect(() => {
-    const handleResize = () => {
-      const widthScale = window.innerWidth / 1920;
-      const heightScale = window.innerHeight / 1080;
-      const minScale = Math.min(widthScale, heightScale);
-      setScale(minScale > 1 ? 1 : minScale);
-    };
+const ErrorText = styled.p`
+  position: absolute;
+  left: 621px;
+  top: 812px;
+  width: 679px;
+  color: #ffffff;
+  text-align: center;
+`;
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+type LoginProps = {
+  readonly oauthEnabled: boolean;
+};
 
-  const handleGoogleLogin = () => {
-    navigate('/student/home');
-  };
+function Login({ oauthEnabled }: LoginProps) {
+  const [error, setError] = useState('');
 
   return (
     <OuterContainer>
-      <InnerCanvas style={{ transform: `scale(${scale})` }}>
+      <InnerCanvas>
         <LogoWrapper>
           <Logo src="/assets/home_logo.svg" alt="IEUM Logo" />
         </LogoWrapper>
 
-        <LoginButton onClick={handleGoogleLogin}>
-          <GoogleIcon
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 48 48"
-            width="40px"
-            height="40px"
-          >
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-            <path fill="#4285F4" d="M46.5 24c0-1.61-.15-3.16-.42-4.69H24v9.07h12.75c-.53 2.87-2.13 5.31-4.51 6.92l7.05 5.47C43.43 36.19 46.5 30.71 46.5 24z" />
-            <path fill="#FBBC05" d="M10.54 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.98-6.19z" />
-            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.05-5.47c-1.99 1.34-4.53 2.15-7.44 2.15-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-          </GoogleIcon>
-          <ButtonText>Continue with Google</ButtonText>
-        </LoginButton>
-
+        {oauthEnabled ? <MirimOAuthLogin setError={setError} /> : <DevTokenLogin setError={setError} />}
+        {error ? <ErrorText>{error}</ErrorText> : null}
         <Description>
           미림마이스터고 선생님과 학생들만 이용할 수 있는
           <br />
@@ -132,6 +134,86 @@ const Login: React.FC = () => {
       </InnerCanvas>
     </OuterContainer>
   );
-};
+}
+
+function MirimOAuthLogin({ setError }: { readonly setError: (message: string) => void }) {
+  const navigate = useNavigate();
+  const { accessToken, isLoading, logIn, oauth } = useMirimOAuth();
+  const mirimAccessToken = oauth?.accessToken ?? accessToken;
+
+  const completeLogin = useCallback(
+    async (token: string) => {
+      await loginWithMirimToken(token);
+      navigate('/admin', { replace: true });
+    },
+    [navigate],
+  );
+
+  useEffect(() => {
+    if (!mirimAccessToken) return;
+    void completeLogin(mirimAccessToken).catch((caught: unknown) => {
+      if (!(caught instanceof Error)) throw caught;
+      setError(caught.message);
+    });
+  }, [completeLogin, mirimAccessToken, setError]);
+
+  const handleLogin = async () => {
+    try {
+      setError('');
+      await logIn();
+      if (mirimAccessToken) {
+        await completeLogin(mirimAccessToken);
+      }
+    } catch (caught) {
+      if (!(caught instanceof Error)) throw caught;
+      setError(caught.message);
+    }
+  };
+
+  return (
+    <LoginButton type="button" onClick={handleLogin} disabled={isLoading}>
+      <MirimLogo src="/assets/mirim-logo.png" alt="" aria-hidden="true" />
+      <ButtonText>{isLoading ? '로그인 중...' : 'Mirim OAuth로 로그인'}</ButtonText>
+    </LoginButton>
+  );
+}
+
+function DevTokenLogin({ setError }: { readonly setError: (message: string) => void }) {
+  const navigate = useNavigate();
+  const [token, setToken] = useState(import.meta.env.VITE_IEUM_ADMIN_DEV_TOKEN ?? '');
+
+  const handleLogin = async () => {
+    try {
+      setError('');
+      await loginWithMirimToken(token.trim());
+      navigate('/admin');
+    } catch (caught) {
+      if (!(caught instanceof Error)) throw caught;
+      setError(caught.message);
+    }
+  };
+
+  return (
+    <>
+      <LoginButton type="button" onClick={handleLogin}>
+        <MirimLogo src="/assets/mirim-logo.png" alt="" aria-hidden="true" />
+        <ButtonText>테스트 토큰으로 로그인</ButtonText>
+      </LoginButton>
+      <TokenPanel
+        onSubmit={(event) => {
+          event.preventDefault();
+          void handleLogin();
+        }}
+      >
+        <TokenInput
+          aria-label="Mirim OAuth 테스트 토큰"
+          placeholder="Mirim OAuth access token"
+          value={token}
+          onChange={(event) => setToken(event.target.value)}
+        />
+      </TokenPanel>
+    </>
+  );
+}
 
 export default Login;

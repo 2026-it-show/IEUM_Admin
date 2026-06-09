@@ -223,7 +223,7 @@ const StudentHome: React.FC = () => {
   ]);
 
   const getFilteredAndSortedFeedbacks = () => {
-    let result = feedbacks.filter((fb) => {
+    const result = feedbacks.filter((fb) => {
       if (activeTab === 'proj1') return fb.project === 'Project1';
       if (activeTab === 'proj2') return fb.project === 'Project2';
       return true;

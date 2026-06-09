@@ -38,10 +38,10 @@ const Navbar: React.FC<NavbarProps> = ({ onProfileClick }) => {
   return (
     <NavContainer>
       {/* 로고 영역 */}
-      <img src="/assets/icons/logo1.svg" alt="IEUM" style={{ height: '24px' }} /> 
+      <img src="/assets/figma/header-logo.svg" alt="IEUM" style={{ width: '136px', height: '27px' }} />
       {/* 3. 오른쪽 프로필 버튼이나 이미지에 onClick={onProfileClick}을 달아줍니다. */}
       <ProfileButton onClick={onProfileClick}>
-        <img src="/assets/icons/profile_logo.svg" alt="IEUM" style={{ width: "36px", height: '36px' }} /> 
+        <img src="/assets/icons/profile_logo.svg" alt="IEUM" style={{ width: "36px", height: '36px' }} />
       </ProfileButton>
     </NavContainer>
   );
