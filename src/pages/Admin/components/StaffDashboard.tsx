@@ -63,7 +63,7 @@ export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, 
               </S.TabButton>
             ))}
           </S.TabGroup>
-          {snapshot.user.role === 'admin' ? <ModeSwitch view={view} setView={setView} /> : null}
+          <ModeSwitch view={view} setView={setView} />
         </S.ActionStrip>
         {view === 'contacts' ? (
           <ContactList
@@ -75,7 +75,7 @@ export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, 
             isPreview={isPreview}
           />
         ) : (
-          <FeedbackList feedback={feedback} token={token} canModerate={!isPreview} onChanged={refresh} />
+          <FeedbackList feedback={feedback} token={token} canModerate={!isPreview} />
         )}
         {snapshot.user.role === 'admin' ? <AdminManagement snapshot={snapshot} token={token} onChanged={refresh} isPreview={isPreview} /> : null}
       </S.Desk>
