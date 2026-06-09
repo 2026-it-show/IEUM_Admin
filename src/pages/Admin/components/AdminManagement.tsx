@@ -14,9 +14,10 @@ type AdminManagementProps = {
   readonly snapshot: AdminSnapshot;
   readonly token: string;
   readonly onChanged: () => Promise<void>;
+  readonly isPreview?: boolean;
 };
 
-export function AdminManagement({ snapshot, token, onChanged }: AdminManagementProps) {
+export function AdminManagement({ snapshot, token, onChanged, isPreview = false }: AdminManagementProps) {
   const [view, setView] = useState<AdminManageKey>('projects');
   return (
     <S.ManageSection>
@@ -39,7 +40,7 @@ export function AdminManagement({ snapshot, token, onChanged }: AdminManagementP
           ))}
         </S.ContactGrid>
       ) : null}
-      {view === 'bannedWords' ? <BannedWordBoard words={snapshot.bannedWords.items} token={token} onChanged={onChanged} /> : null}
+      {view === 'bannedWords' ? <BannedWordBoard words={snapshot.bannedWords.items} token={token} onChanged={onChanged} isPreview={isPreview} /> : null}
     </S.ManageSection>
   );
 }
@@ -67,10 +68,12 @@ function BannedWordBoard({
   words,
   token,
   onChanged,
+  isPreview,
 }: {
   readonly words: readonly BannedWord[];
   readonly token: string;
   readonly onChanged: () => Promise<void>;
+  readonly isPreview: boolean;
 }) {
   const [word, setWord] = useState('');
   return (
@@ -80,6 +83,10 @@ function BannedWordBoard({
           event.preventDefault();
           const trimmed = word.trim();
           if (!trimmed) return;
+          if (isPreview) {
+            setWord('');
+            return;
+          }
           await createBannedWord(token, trimmed);
           setWord('');
           await onChanged();
@@ -97,6 +104,7 @@ function BannedWordBoard({
               <S.MiniButton
                 type="button"
                 onClick={async () => {
+                  if (isPreview) return;
                   await updateBannedWord(token, item.id, !item.isActive);
                   await onChanged();
                 }}
@@ -106,6 +114,7 @@ function BannedWordBoard({
               <S.MiniButton
                 type="button"
                 onClick={async () => {
+                  if (isPreview) return;
                   await deleteBannedWord(token, item.id);
                   await onChanged();
                 }}

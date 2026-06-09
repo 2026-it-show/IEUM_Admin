@@ -1,6 +1,7 @@
 import { MirimOAuthProvider } from 'mirim-oauth-react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
+import { RolePreviewSwitch } from './components/RolePreviewSwitch';
 import { GlobalStyle, theme } from './styles';
 import AdminDashboard from './pages/Admin/AdminDashboard';
 import Login from './pages/Home/Login';
@@ -20,6 +21,7 @@ function App() {
     <ThemeProvider theme={theme}>
       <BrowserRouter>
         <GlobalStyle />
+        <RolePreviewSwitch />
 
         <Routes>
           <Route path="/" element={<AdminDashboard />} />

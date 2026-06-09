@@ -20,9 +20,10 @@ type StaffDashboardProps = {
   readonly setSort: (sort: SortKey) => void;
   readonly token: string;
   readonly refresh: () => Promise<void>;
+  readonly isPreview?: boolean;
 };
 
-export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, refresh }: StaffDashboardProps) {
+export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, refresh, isPreview = false }: StaffDashboardProps) {
   const [query, setQuery] = useState('');
   const [classFilter, setClassFilter] = useState('전체');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -65,11 +66,18 @@ export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, 
           {snapshot.user.role === 'admin' ? <ModeSwitch view={view} setView={setView} /> : null}
         </S.ActionStrip>
         {view === 'contacts' ? (
-          <ContactList contacts={contacts} projectsById={projectsById} token={token} onSelect={setSelectedContact} onChanged={refresh} />
+          <ContactList
+            contacts={contacts}
+            projectsById={projectsById}
+            token={token}
+            onSelect={setSelectedContact}
+            onChanged={refresh}
+            isPreview={isPreview}
+          />
         ) : (
-          <FeedbackList feedback={feedback} token={token} canModerate onChanged={refresh} />
+          <FeedbackList feedback={feedback} token={token} canModerate={!isPreview} onChanged={refresh} />
         )}
-        {snapshot.user.role === 'admin' ? <AdminManagement snapshot={snapshot} token={token} onChanged={refresh} /> : null}
+        {snapshot.user.role === 'admin' ? <AdminManagement snapshot={snapshot} token={token} onChanged={refresh} isPreview={isPreview} /> : null}
       </S.Desk>
     </S.Content>
   );
@@ -93,12 +101,14 @@ function ContactList({
   token,
   onSelect,
   onChanged,
+  isPreview,
 }: {
   readonly contacts: readonly Contact[];
   readonly projectsById: ReadonlyMap<string, ProjectSummary>;
   readonly token: string;
   readonly onSelect: (contact: Contact) => void;
   readonly onChanged: () => Promise<void>;
+  readonly isPreview: boolean;
 }) {
   if (contacts.length === 0) return <S.EmptyState>아직 채용을 희망하는 회사가 없습니다</S.EmptyState>;
   return (
@@ -109,7 +119,7 @@ function ContactList({
           type="button"
           onClick={async () => {
             onSelect(await fetchContactDetail(token, contact.id).catch(() => contact));
-            if (contact.status === 'new') {
+            if (!isPreview && contact.status === 'new') {
               await updateContactStatus(token, contact.id, 'checked');
               await onChanged();
             }

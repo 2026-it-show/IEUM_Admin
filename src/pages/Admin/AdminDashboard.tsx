@@ -1,23 +1,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { fetchHomeSnapshot, readStoredToken, type HomeSnapshot } from '../../api/adminApi';
 import { AdminHeader } from './components/AdminHeader';
 import { DashboardSkeleton } from './components/DashboardSkeleton';
 import { StaffDashboard } from './components/StaffDashboard';
 import { StudentDashboard } from './components/StudentDashboard';
 import { type LoadStatus, type SortKey, type StaffViewKey } from './adminTypes';
+import { createPreviewSnapshot, readPreviewRole } from './previewData';
 import * as S from './AdminDashboard.styled';
 
 function AdminDashboard() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const previewRole = readPreviewRole(searchParams.get('preview'));
   const token = useMemo(() => readStoredToken(), []);
   const [view, setView] = useState<StaffViewKey>('contacts');
   const [studentProjectId, setStudentProjectId] = useState('all');
   const [sort, setSort] = useState<SortKey>('latest');
+  const previewSnapshot = useMemo(() => (previewRole ? createPreviewSnapshot(previewRole) : null), [previewRole]);
   const [snapshot, setSnapshot] = useState<HomeSnapshot | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [status, setStatus] = useState<LoadStatus>('loading');
   const [message, setMessage] = useState('');
+  const activeSnapshot = previewSnapshot ?? snapshot;
+  const activeStatus: LoadStatus = previewSnapshot ? 'ready' : status;
+  const isPreview = Boolean(previewSnapshot);
 
   const refresh = useCallback(async () => {
     if (!token) {
@@ -28,31 +35,41 @@ function AdminDashboard() {
   }, [navigate, token]);
 
   useEffect(() => {
+    if (previewSnapshot) return;
     void refresh();
-  }, [refresh]);
+  }, [previewSnapshot, refresh]);
 
-  if (status === 'loading') return <DashboardSkeleton />;
-  if (status === 'error' || !snapshot) return <ErrorScreen message={message} onLogin={() => navigate('/login', { replace: true })} />;
+  if (activeStatus === 'loading') return <DashboardSkeleton />;
+  if (activeStatus === 'error' || !activeSnapshot) return <ErrorScreen message={message} onLogin={() => navigate('/login', { replace: true })} />;
 
   return (
     <S.Page>
       <AdminHeader
-        user={snapshot.user}
+        user={activeSnapshot.user}
         token={token}
         profileOpen={profileOpen}
         setProfileOpen={setProfileOpen}
         navigateLogin={() => navigate('/login', { replace: true })}
       />
-      {snapshot.kind === 'student' ? (
+      {activeSnapshot.kind === 'student' ? (
         <StudentDashboard
-          snapshot={snapshot}
+          snapshot={activeSnapshot}
           projectId={studentProjectId}
           setProjectId={setStudentProjectId}
           sort={sort}
           setSort={setSort}
         />
       ) : (
-        <StaffDashboard snapshot={snapshot} view={view} setView={setView} sort={sort} setSort={setSort} token={token} refresh={refresh} />
+        <StaffDashboard
+          snapshot={activeSnapshot}
+          view={view}
+          setView={setView}
+          sort={sort}
+          setSort={setSort}
+          token={token}
+          refresh={refresh}
+          isPreview={isPreview}
+        />
       )}
     </S.Page>
   );
