@@ -7,46 +7,64 @@ import { loginWithMirimToken } from '../../api/adminApi';
 const OuterContainer = styled.div`
   min-height: 100dvh;
   background: linear-gradient(134.188deg, #f25c69 2.1959%, #cd3f4b 97.804%);
-  display: grid;
-  place-items: center;
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: clamp(28px, 8dvh, 96px) clamp(18px, 5vw, 48px);
 `;
 
-const InnerCanvas = styled.div`
-  position: relative;
-  width: 1920px;
-  height: 1080px;
-  transform: scale(min(100vw / 1920, 100dvh / 1080));
-  transform-origin: center;
+const LoginContent = styled.main`
+  width: min(100%, 990px);
+  min-height: min(720px, calc(100dvh - clamp(56px, 16dvh, 192px)));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(28px, 8dvh, 128px);
+
+  @media (max-width: 720px) {
+    min-height: calc(100dvh - 56px);
+    justify-content: center;
+    gap: clamp(22px, 7dvh, 64px);
+  }
 `;
 
 const LogoWrapper = styled.div`
-  position: absolute;
-  left: 465px;
-  top: 246px;
-  width: 990px;
-  height: 90px;
+  width: min(100%, 990px);
+  display: flex;
+  justify-content: center;
 `;
 
 const Logo = styled.img`
   width: 100%;
-  height: 100%;
+  height: auto;
   object-fit: contain;
+
+  @media (max-width: 720px) {
+    width: min(100%, 560px);
+  }
+`;
+
+const LoginActions = styled.div`
+  width: min(100%, 679px);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
 `;
 
 const LoginButton = styled.button`
-  position: absolute;
-  left: 621px;
-  top: 687px;
-  width: 679px;
-  height: 106px;
+  width: 100%;
+  min-height: clamp(68px, 9vw, 106px);
+  padding: 10px clamp(24px, 5vw, 70px);
   border-radius: 71px;
   background-color: rgba(255, 255, 255, 0.9);
   border: 1px solid #d9d9d9;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 50px;
+  gap: clamp(16px, 4vw, 50px);
   cursor: pointer;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 
@@ -55,39 +73,43 @@ const LoginButton = styled.button`
     opacity: 0.75;
   }
 
+  @media (max-width: 520px) {
+    justify-content: flex-start;
+  }
 `;
 
 const MirimLogo = styled.img`
-  width: 74px;
-  height: 74px;
+  width: clamp(48px, 11vw, 74px);
+  height: clamp(48px, 11vw, 74px);
   border-radius: 84px;
   object-fit: cover;
 `;
 
 const ButtonText = styled.span`
-  width: 384px;
-  font-size: 32px;
+  min-width: 0;
+  flex: 1;
+  font-size: clamp(19px, 4vw, 32px);
   font-weight: 500;
   color: #000000;
+  text-align: center;
+  white-space: nowrap;
+
+  @media (max-width: 420px) {
+    font-size: 18px;
+  }
 `;
 
 const Description = styled.p`
-  position: absolute;
-  left: 698px;
-  top: 871px;
-  width: 525px;
-  font-size: 24px;
+  margin: 0;
+  width: min(100%, 560px);
+  font-size: clamp(16px, 3vw, 24px);
   color: #fab8be;
   text-align: center;
-  line-height: 40px;
+  line-height: 1.65;
   font-weight: 400;
 `;
 
 const TokenPanel = styled.form`
-  position: absolute;
-  left: 621px;
-  top: 812px;
-  width: 679px;
   display: grid;
   gap: 10px;
 `;
@@ -102,12 +124,11 @@ const TokenInput = styled.input`
 `;
 
 const ErrorText = styled.p`
-  position: absolute;
-  left: 621px;
-  top: 812px;
-  width: 679px;
+  min-height: 24px;
+  margin: 0;
   color: #ffffff;
   text-align: center;
+  line-height: 1.5;
 `;
 
 type LoginProps = {
@@ -119,19 +140,21 @@ function Login({ oauthEnabled }: LoginProps) {
 
   return (
     <OuterContainer>
-      <InnerCanvas>
+      <LoginContent>
         <LogoWrapper>
           <Logo src="/assets/home_logo.svg" alt="IEUM Logo" />
         </LogoWrapper>
 
-        {oauthEnabled ? <MirimOAuthLogin setError={setError} /> : <DevTokenLogin setError={setError} />}
-        {error ? <ErrorText>{error}</ErrorText> : null}
+        <LoginActions>
+          {oauthEnabled ? <MirimOAuthLogin setError={setError} /> : <DevTokenLogin setError={setError} />}
+          <ErrorText aria-live="polite">{error}</ErrorText>
+        </LoginActions>
         <Description>
           미림마이스터고 선생님과 학생들만 이용할 수 있는
           <br />
           IEUM의 관리자 페이지입니다
         </Description>
-      </InnerCanvas>
+      </LoginContent>
     </OuterContainer>
   );
 }
