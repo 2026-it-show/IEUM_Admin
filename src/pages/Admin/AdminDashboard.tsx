@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   createBannedWord,
   deleteBannedWord,
-  fetchAdminSnapshot,
   fetchContactDetail,
+  fetchHomeSnapshot,
   logout,
   readStoredToken,
   updateBannedWord,
@@ -13,17 +14,19 @@ import {
   type BannedWord,
   type Contact,
   type Feedback,
+  type HomeSnapshot,
   type ProjectSummary,
+  type StudentSnapshot,
 } from '../../api/adminApi';
 import * as S from './AdminDashboard.styled';
 
-type ViewKey = 'feedback' | 'contacts' | 'projects' | 'users' | 'bannedWords';
+type StaffViewKey = 'contacts' | 'feedback' | 'projects' | 'users' | 'bannedWords';
 type SortKey = 'latest' | 'oldest';
 type LoadStatus = 'loading' | 'ready' | 'error';
 
-const VIEW_LABELS: Record<ViewKey, string> = {
+const STAFF_VIEW_LABELS: Record<StaffViewKey, string> = {
+  contacts: '채용희망',
   feedback: '피드백',
-  contacts: '채용',
   projects: '프로젝트',
   users: '사용자',
   bannedWords: '금칙어',
@@ -40,18 +43,24 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 function AdminDashboard() {
+  const navigate = useNavigate();
   const token = useMemo(() => readStoredToken(), []);
-  const [view, setView] = useState<ViewKey>('feedback');
+  const [view, setView] = useState<StaffViewKey>('contacts');
+  const [studentProjectId, setStudentProjectId] = useState('all');
   const [sort, setSort] = useState<SortKey>('latest');
-  const [snapshot, setSnapshot] = useState<AdminSnapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<HomeSnapshot | null>(null);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [status, setStatus] = useState<LoadStatus>('loading');
   const [message, setMessage] = useState('');
 
   const refresh = useCallback(async () => {
-    await loadSnapshot(token, setSnapshot, setStatus, setMessage);
-  }, [token]);
+    if (!token) {
+      navigate('/login', { replace: true });
+      return;
+    }
+    await loadSnapshot(token, setSnapshot, setStatus, setMessage, navigate);
+  }, [navigate, token]);
 
   useEffect(() => {
     void refresh();
@@ -64,108 +73,216 @@ function AdminDashboard() {
   if (status === 'error' || !snapshot) {
     return (
       <S.Center>
-        <S.ErrorText>{message || '관리자 데이터를 불러오지 못했습니다'}</S.ErrorText>
-        <S.PrimaryButton type="button" onClick={() => window.location.assign('/')}>
+        <S.ErrorText>{message || '데이터를 불러오지 못했습니다'}</S.ErrorText>
+        <S.PrimaryButton type="button" onClick={() => navigate('/login', { replace: true })}>
           로그인으로 이동
         </S.PrimaryButton>
       </S.Center>
     );
   }
 
+  return (
+    <S.Page>
+      <Header
+        user={snapshot.user}
+        token={token}
+        profileOpen={profileOpen}
+        setProfileOpen={setProfileOpen}
+        navigateLogin={() => navigate('/login', { replace: true })}
+      />
+      {snapshot.kind === 'student' ? (
+        <StudentHome snapshot={snapshot} projectId={studentProjectId} setProjectId={setStudentProjectId} sort={sort} setSort={setSort} />
+      ) : (
+        <StaffHome
+          snapshot={snapshot}
+          view={view}
+          setView={setView}
+          sort={sort}
+          setSort={setSort}
+          token={token}
+          selectedContact={selectedContact}
+          setSelectedContact={setSelectedContact}
+          refresh={refresh}
+          message={message}
+        />
+      )}
+    </S.Page>
+  );
+}
+
+function Header({
+  user,
+  token,
+  profileOpen,
+  setProfileOpen,
+  navigateLogin,
+}: {
+  readonly user: HomeSnapshot['user'];
+  readonly token: string;
+  readonly profileOpen: boolean;
+  readonly setProfileOpen: (open: boolean) => void;
+  readonly navigateLogin: () => void;
+}) {
+  return (
+    <S.Topbar>
+      <S.Logo src="/assets/brand/ieum-header-logo.svg" alt="IEUM" />
+      <S.ProfileButton type="button" onClick={() => setProfileOpen(!profileOpen)} aria-label="프로필">
+        {initialOf(user.name)}
+      </S.ProfileButton>
+      {profileOpen ? (
+        <S.ProfileCard>
+          <S.ProfileRow>
+            <S.Avatar>{initialOf(user.name)}</S.Avatar>
+            <div>
+              <S.ProfileName>{user.name}</S.ProfileName>
+              <S.ProfileEmail>{user.email}</S.ProfileEmail>
+              <S.ProfileEmail>{roleLabel(user.role)}</S.ProfileEmail>
+            </div>
+          </S.ProfileRow>
+          <S.LogoutButton
+            type="button"
+            onClick={async () => {
+              await logout(token).catch(() => undefined);
+              navigateLogin();
+            }}
+          >
+            로그아웃
+          </S.LogoutButton>
+        </S.ProfileCard>
+      ) : null}
+    </S.Topbar>
+  );
+}
+
+function StaffHome({
+  snapshot,
+  view,
+  setView,
+  sort,
+  setSort,
+  token,
+  selectedContact,
+  setSelectedContact,
+  refresh,
+  message,
+}: {
+  readonly snapshot: AdminSnapshot;
+  readonly view: StaffViewKey;
+  readonly setView: (view: StaffViewKey) => void;
+  readonly sort: SortKey;
+  readonly setSort: (sort: SortKey) => void;
+  readonly token: string;
+  readonly selectedContact: Contact | null;
+  readonly setSelectedContact: (contact: Contact | null) => void;
+  readonly refresh: () => Promise<void>;
+  readonly message: string;
+}) {
   const projectsById = new Map(snapshot.projects.items.map((project) => [project.id, project]));
   const sortedFeedback = sortByDate(snapshot.feedback.items, sort);
   const sortedContacts = sortByDate(snapshot.contacts.items, sort);
 
   return (
-    <S.Page>
-      <S.Topbar>
-        <S.Logo src="/assets/brand/ieum-header-logo.svg" alt="IEUM" />
-        <S.ProfileButton type="button" onClick={() => setProfileOpen((open) => !open)} aria-label="프로필">
-          {initialOf(snapshot.user.name)}
-        </S.ProfileButton>
-        {profileOpen ? (
-          <S.ProfileCard>
-            <S.ProfileRow>
-              <S.Avatar>{initialOf(snapshot.user.name)}</S.Avatar>
-              <div>
-                <S.ProfileName>{snapshot.user.name}</S.ProfileName>
-                <S.ProfileEmail>{snapshot.user.email}</S.ProfileEmail>
-              </div>
-            </S.ProfileRow>
-            <S.LogoutButton
+    <S.Content>
+      <S.StatsGrid aria-label="관리자 통계">
+        <S.StatCard>
+          <span>프로젝트</span>
+          <strong>{snapshot.dashboard.projectCount}</strong>
+        </S.StatCard>
+        <S.StatCard>
+          <span>피드백</span>
+          <strong>{snapshot.dashboard.feedbackCount}</strong>
+        </S.StatCard>
+        <S.StatCard>
+          <span>채용희망</span>
+          <strong>{snapshot.dashboard.contactCount}</strong>
+        </S.StatCard>
+        <S.StatCard>
+          <span>관심 표시</span>
+          <strong>{snapshot.dashboard.interestCount}</strong>
+        </S.StatCard>
+      </S.StatsGrid>
+
+      <S.Toolbar>
+        <S.TabGroup>
+          {(Object.keys(STAFF_VIEW_LABELS) as StaffViewKey[]).map((key) => (
+            <S.TabButton
+              key={key}
               type="button"
-              onClick={async () => {
-                await logout(token).catch(() => undefined);
-                window.location.assign('/');
+              $active={view === key}
+              onClick={() => {
+                setView(key);
+                setSelectedContact(null);
               }}
             >
-              로그아웃
-            </S.LogoutButton>
-          </S.ProfileCard>
-        ) : null}
-      </S.Topbar>
+              {STAFF_VIEW_LABELS[key]}
+            </S.TabButton>
+          ))}
+        </S.TabGroup>
+        <S.SortSelect value={sort} onChange={(event) => setSort(event.target.value as SortKey)}>
+          <option value="latest">최신순</option>
+          <option value="oldest">오래된순</option>
+        </S.SortSelect>
+      </S.Toolbar>
 
-      <S.Content>
-        <S.StatsGrid aria-label="관리자 통계">
-          <S.StatCard>
-            <span>프로젝트</span>
-            <strong>{snapshot.dashboard.projectCount}</strong>
-          </S.StatCard>
-          <S.StatCard>
-            <span>피드백</span>
-            <strong>{snapshot.dashboard.feedbackCount}</strong>
-          </S.StatCard>
-          <S.StatCard>
-            <span>채용 문의</span>
-            <strong>{snapshot.dashboard.contactCount}</strong>
-          </S.StatCard>
-          <S.StatCard>
-            <span>관심 표시</span>
-            <strong>{snapshot.dashboard.interestCount}</strong>
-          </S.StatCard>
-        </S.StatsGrid>
+      {message ? <S.Notice>{message}</S.Notice> : null}
+      {view === 'contacts' ? (
+        <ContactBoard
+          contacts={sortedContacts}
+          projectsById={projectsById}
+          selectedContact={selectedContact}
+          token={token}
+          onSelect={setSelectedContact}
+          onChanged={refresh}
+        />
+      ) : null}
+      {view === 'feedback' ? (
+        <FeedbackBoard feedback={sortedFeedback} projectsById={projectsById} token={token} onChanged={refresh} canModerate />
+      ) : null}
+      {view === 'projects' ? <ProjectBoard projects={snapshot.projects.items} /> : null}
+      {view === 'users' ? <UserBoard snapshot={snapshot} /> : null}
+      {view === 'bannedWords' ? <BannedWordBoard words={snapshot.bannedWords.items} token={token} onChanged={refresh} /> : null}
+    </S.Content>
+  );
+}
 
-        <S.Toolbar>
-          <S.TabGroup>
-            {(Object.keys(VIEW_LABELS) as ViewKey[]).map((key) => (
-              <S.TabButton
-                key={key}
-                type="button"
-                $active={view === key}
-                onClick={() => {
-                  setView(key);
-                  setSelectedContact(null);
-                }}
-              >
-                {VIEW_LABELS[key]}
-              </S.TabButton>
-            ))}
-          </S.TabGroup>
-          <S.SortSelect value={sort} onChange={(event) => setSort(event.target.value as SortKey)}>
-            <option value="latest">최신순</option>
-            <option value="oldest">오래된순</option>
-          </S.SortSelect>
-        </S.Toolbar>
-
-        {message ? <S.Notice>{message}</S.Notice> : null}
-        {view === 'feedback' ? (
-          <FeedbackBoard feedback={sortedFeedback} projectsById={projectsById} token={token} onChanged={refresh} />
-        ) : null}
-        {view === 'contacts' ? (
-          <ContactBoard
-            contacts={sortedContacts}
-            projectsById={projectsById}
-            selectedContact={selectedContact}
-            token={token}
-            onSelect={setSelectedContact}
-            onChanged={refresh}
-          />
-        ) : null}
-        {view === 'projects' ? <ProjectBoard projects={snapshot.projects.items} /> : null}
-        {view === 'users' ? <UserBoard snapshot={snapshot} /> : null}
-        {view === 'bannedWords' ? <BannedWordBoard words={snapshot.bannedWords.items} token={token} onChanged={refresh} /> : null}
-      </S.Content>
-    </S.Page>
+function StudentHome({
+  snapshot,
+  projectId,
+  setProjectId,
+  sort,
+  setSort,
+}: {
+  readonly snapshot: StudentSnapshot;
+  readonly projectId: string;
+  readonly setProjectId: (projectId: string) => void;
+  readonly sort: SortKey;
+  readonly setSort: (sort: SortKey) => void;
+}) {
+  const selected = snapshot.projectFeedback.filter((entry) => projectId === 'all' || entry.project.id === projectId);
+  const feedback = sortByDate(
+    selected.flatMap((entry) => entry.feedback.items.map((item) => ({ ...item, project: entry.project }))),
+    sort,
+  );
+  return (
+    <S.Content>
+      <S.Toolbar>
+        <S.TabGroup>
+          <S.TabButton type="button" $active={projectId === 'all'} onClick={() => setProjectId('all')}>
+            전체
+          </S.TabButton>
+          {snapshot.projects.map((project) => (
+            <S.TabButton key={project.id} type="button" $active={projectId === project.id} onClick={() => setProjectId(project.id)}>
+              {project.serviceName}
+            </S.TabButton>
+          ))}
+        </S.TabGroup>
+        <S.SortSelect value={sort} onChange={(event) => setSort(event.target.value as SortKey)}>
+          <option value="latest">최신순</option>
+          <option value="oldest">오래된순</option>
+        </S.SortSelect>
+      </S.Toolbar>
+      <StudentFeedbackBoard feedback={feedback} />
+    </S.Content>
   );
 }
 
@@ -196,16 +313,36 @@ function DashboardSkeleton() {
   );
 }
 
+function StudentFeedbackBoard({ feedback }: { readonly feedback: readonly (Feedback & { readonly project: ProjectSummary })[] }) {
+  if (feedback.length === 0) return <S.EmptyState>아직 받은 피드백이 없습니다</S.EmptyState>;
+  return (
+    <S.Masonry>
+      {feedback.map((item) => (
+        <S.FeedbackCard key={item.id}>
+          <S.ProjectChip $color={projectColor(item.project)}>{item.project.serviceName}</S.ProjectChip>
+          <S.CardTitle>{item.project.boothSlot ?? item.project.teamName}</S.CardTitle>
+          <S.CardBody>{item.content}</S.CardBody>
+          <S.CardFooter>
+            <span>{formatDate(item.createdAt)}</span>
+          </S.CardFooter>
+        </S.FeedbackCard>
+      ))}
+    </S.Masonry>
+  );
+}
+
 function FeedbackBoard({
   feedback,
   projectsById,
   token,
   onChanged,
+  canModerate,
 }: {
   readonly feedback: readonly Feedback[];
   readonly projectsById: ReadonlyMap<string, ProjectSummary>;
   readonly token: string;
   readonly onChanged: () => Promise<void>;
+  readonly canModerate: boolean;
 }) {
   if (feedback.length === 0) return <S.EmptyState>아직 받은 피드백이 없습니다</S.EmptyState>;
   return (
@@ -214,20 +351,22 @@ function FeedbackBoard({
         const project = projectsById.get(item.projectId);
         return (
           <S.FeedbackCard key={item.id}>
-            <S.ProjectChip $color={projectColor(project)}>{project?.boothSlot ?? project?.serviceName ?? 'Project'}</S.ProjectChip>
-            <S.CardTitle>{project?.serviceName ?? '프로젝트'}</S.CardTitle>
+            <S.ProjectChip $color={projectColor(project)}>{project?.serviceName ?? 'Project'}</S.ProjectChip>
+            <S.CardTitle>{project?.boothSlot ?? project?.teamName ?? '프로젝트'}</S.CardTitle>
             <S.CardBody>{item.content}</S.CardBody>
             <S.CardFooter>
               <span>{formatDate(item.createdAt)}</span>
-              <S.MiniButton
-                type="button"
-                onClick={async () => {
-                  await updateFeedbackStatus(token, item.id, item.status === 'public' ? 'blocked' : 'public');
-                  await onChanged();
-                }}
-              >
-                {item.status === 'public' ? '숨김' : '공개'}
-              </S.MiniButton>
+              {canModerate ? (
+                <S.MiniButton
+                  type="button"
+                  onClick={async () => {
+                    await updateFeedbackStatus(token, item.id, item.status === 'public' ? 'blocked' : 'public');
+                    await onChanged();
+                  }}
+                >
+                  {item.status === 'public' ? '숨김' : '공개'}
+                </S.MiniButton>
+              ) : null}
             </S.CardFooter>
           </S.FeedbackCard>
         );
@@ -335,7 +474,7 @@ function UserBoard({ snapshot }: { readonly snapshot: AdminSnapshot }) {
         <S.ContactCard key={user.id} type="button">
           <S.CardTitle>{user.name}</S.CardTitle>
           <S.ContactOrg>{user.email}</S.ContactOrg>
-          <S.RoleBadge>{user.role}</S.RoleBadge>
+          <S.RoleBadge>{roleLabel(user.role)}</S.RoleBadge>
         </S.ContactCard>
       ))}
     </S.ContactGrid>
@@ -401,24 +540,23 @@ function BannedWordBoard({
 
 async function loadSnapshot(
   token: string,
-  setSnapshot: (snapshot: AdminSnapshot | null) => void,
+  setSnapshot: (snapshot: HomeSnapshot | null) => void,
   setStatus: (status: LoadStatus) => void,
   setMessage: (message: string) => void,
+  navigate: (to: string, options: { readonly replace: boolean }) => void,
 ): Promise<void> {
-  if (!token) {
-    setStatus('error');
-    setMessage('Mirim OAuth 로그인이 필요합니다');
-    return;
-  }
   try {
     setStatus('loading');
-    setSnapshot(await fetchAdminSnapshot(token));
+    setSnapshot(await fetchHomeSnapshot(token));
     setMessage('');
     setStatus('ready');
   } catch (caught) {
     if (!(caught instanceof Error)) throw caught;
     setMessage(caught.message);
     setStatus('error');
+    if (caught.message.includes('401') || caught.message.includes('로그인') || caught.message.includes('Unauthorized')) {
+      navigate('/login', { replace: true });
+    }
   }
 }
 
@@ -435,6 +573,12 @@ function projectColor(project: ProjectSummary | undefined): string {
 
 function initialOf(name: string): string {
   return name.trim().slice(0, 1) || 'I';
+}
+
+function roleLabel(role: HomeSnapshot['user']['role']): string {
+  if (role === 'admin') return '관리자';
+  if (role === 'teacher') return '선생님';
+  return '학생';
 }
 
 function formatDate(value: string): string {

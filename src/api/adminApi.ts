@@ -82,6 +82,24 @@ export type AdminSnapshot = {
   readonly bannedWords: CursorPage<BannedWord>;
 };
 
+export type StaffSnapshot = AdminSnapshot & {
+  readonly kind: 'staff';
+};
+
+export type StudentProjectFeedback = {
+  readonly project: ProjectSummary;
+  readonly feedback: CursorPage<Feedback>;
+};
+
+export type StudentSnapshot = {
+  readonly kind: 'student';
+  readonly user: AdminUser;
+  readonly projects: readonly ProjectSummary[];
+  readonly projectFeedback: readonly StudentProjectFeedback[];
+};
+
+export type HomeSnapshot = StaffSnapshot | StudentSnapshot;
+
 type ApiEnvelope<T> = {
   readonly data: T;
 };
@@ -108,9 +126,24 @@ export async function logout(accessToken: string): Promise<void> {
   clearStoredToken();
 }
 
-export async function fetchAdminSnapshot(accessToken: string): Promise<AdminSnapshot> {
+export async function fetchHomeSnapshot(accessToken: string): Promise<HomeSnapshot> {
+  const user = await request<AdminUser>('/auth/me', accessToken);
+  if (user.role === 'student') {
+    const projects = await request<readonly ProjectSummary[]>('/student/projects', accessToken);
+    const projectFeedback = await Promise.all(
+      projects.map(async (project) => ({
+        project,
+        feedback: await request<CursorPage<Feedback>>(`/student/projects/${project.id}/feedback?limit=80`, accessToken),
+      })),
+    );
+    return { kind: 'student', user, projects, projectFeedback };
+  }
+  return { kind: 'staff', ...(await fetchAdminSnapshot(accessToken, user)) };
+}
+
+export async function fetchAdminSnapshot(accessToken: string, knownUser?: AdminUser): Promise<AdminSnapshot> {
   const [user, dashboard, projects, feedback, contacts, users, bannedWords] = await Promise.all([
-    request<AdminUser>('/auth/me', accessToken),
+    knownUser ? Promise.resolve(knownUser) : request<AdminUser>('/auth/me', accessToken),
     request<DashboardStats>('/admin/dashboard', accessToken),
     request<CursorPage<ProjectSummary>>('/admin/projects?limit=80', accessToken),
     request<CursorPage<Feedback>>('/admin/feedback?limit=80', accessToken),

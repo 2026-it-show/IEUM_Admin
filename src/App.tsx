@@ -22,12 +22,13 @@ function App() {
         <GlobalStyle />
 
         <Routes>
-          <Route path="/" element={<LoginRoute />} />
+          <Route path="/" element={<AdminDashboard />} />
+          <Route path="/login" element={<LoginRoute />} />
           <Route path="/oauth/*" element={<LoginRoute />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/student/home" element={<Navigate to="/admin" replace />} />
-          <Route path="/teacher/home" element={<Navigate to="/admin" replace />} />
-          <Route path="*" element={<LoginRoute />} />
+          <Route path="/admin" element={<Navigate to="/" replace />} />
+          <Route path="/student/home" element={<Navigate to="/" replace />} />
+          <Route path="/teacher/home" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

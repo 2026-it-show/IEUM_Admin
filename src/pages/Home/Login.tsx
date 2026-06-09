@@ -167,7 +167,7 @@ function MirimOAuthLogin({ setError }: { readonly setError: (message: string) =>
   const completeLogin = useCallback(
     async (token: string) => {
       await loginWithMirimToken(token);
-      navigate('/admin', { replace: true });
+      navigate('/', { replace: true });
     },
     [navigate],
   );
@@ -209,7 +209,7 @@ function DevTokenLogin({ setError }: { readonly setError: (message: string) => v
     try {
       setError('');
       await loginWithMirimToken(token.trim());
-      navigate('/admin');
+      navigate('/');
     } catch (caught) {
       if (!(caught instanceof Error)) throw caught;
       setError(caught.message);
