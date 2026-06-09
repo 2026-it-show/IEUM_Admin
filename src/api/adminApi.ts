@@ -56,6 +56,7 @@ export type ContactStatus = 'new' | 'checked' | 'archived' | 'deleted';
 export type Contact = {
   readonly id: string;
   readonly projectId: string;
+  readonly targetMemberUserId: string;
   readonly name: string | null;
   readonly organization: string | null;
   readonly position: string | null;
@@ -65,6 +66,7 @@ export type Contact = {
   readonly status: ContactStatus;
   readonly createdAt: string;
   readonly project?: ProjectSummary;
+  readonly targetMemberUser?: AdminUser;
 };
 
 export type BannedWord = {

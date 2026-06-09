@@ -41,7 +41,7 @@ export function ContactDetail({
         <S.BackButton type="button" onClick={onBack} aria-label="목록으로 돌아가기">
           ×
         </S.BackButton>
-        <S.DetailTitle>{contact.name ?? '담당자'}</S.DetailTitle>
+        <S.DetailTitle>{contact.targetMemberUser?.name ?? '학생'}</S.DetailTitle>
       </S.DetailHeader>
       <S.DetailCarousel>
         {canMove ? (

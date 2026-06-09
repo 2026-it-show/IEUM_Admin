@@ -35,8 +35,16 @@ export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, 
     [checkedContactIds, snapshot.contacts.items],
   );
   const contacts = sortByDate(filterContacts(displayedContacts, projectsById, query), sort);
-  const selectedIndex = selectedContactId ? contacts.findIndex((contact) => contact.id === selectedContactId) : -1;
-  const selectedContact = selectedIndex >= 0 ? contactDetails[selectedContactId ?? ''] ?? contacts[selectedIndex] : null;
+  const contactGroups = useMemo(() => groupContactsByTargetStudent(contacts), [contacts]);
+  const selectedContactFallback = selectedContactId ? contacts.find((contact) => contact.id === selectedContactId) : null;
+  const selectedGroupKey = selectedContactFallback ? contactGroupKey(selectedContactFallback) : null;
+  const selectedGroup = selectedGroupKey ? contactGroups.find((group) => group.key === selectedGroupKey) : null;
+  const selectedIndex = selectedContactId && selectedGroup
+    ? selectedGroup.contacts.findIndex((contact) => contact.id === selectedContactId)
+    : -1;
+  const selectedContact = selectedIndex >= 0 && selectedContactId
+    ? contactDetails[selectedContactId] ?? selectedGroup?.contacts[selectedIndex] ?? null
+    : null;
   const feedback = sortByDate(
     snapshot.feedback.items.map((item) => ({ ...item, project: projectsById.get(item.projectId) })),
     sort,
@@ -57,17 +65,20 @@ export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, 
     }
   }, [isPreview, markContactChecked, token]);
 
-  const openContactAtIndex = useCallback((index: number) => {
-    const contact = contacts[index];
+  const openContactAtGroupIndex = useCallback((index: number) => {
+    const contact = selectedGroup?.contacts[index];
     if (!contact) return;
     void openContact(contact);
-  }, [contacts, openContact]);
+  }, [openContact, selectedGroup?.contacts]);
 
   const moveContact = useCallback((direction: -1 | 1) => {
-    if (selectedIndex < 0 || contacts.length === 0) return;
-    const nextIndex = (selectedIndex + direction + contacts.length) % contacts.length;
-    openContactAtIndex(nextIndex);
-  }, [contacts.length, openContactAtIndex, selectedIndex]);
+    const groupContacts = selectedGroup?.contacts ?? [];
+    if (selectedIndex < 0 || groupContacts.length === 0) return;
+    const nextIndex = (selectedIndex + direction + groupContacts.length) % groupContacts.length;
+    const contact = groupContacts[nextIndex];
+    if (!contact) return;
+    void openContact(contact);
+  }, [openContact, selectedGroup?.contacts, selectedIndex]);
 
   if (selectedContact) {
     return (
@@ -76,10 +87,10 @@ export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, 
           contact={selectedContact}
           project={projectsById.get(selectedContact.projectId)}
           currentIndex={selectedIndex}
-          totalCount={contacts.length}
+          totalCount={selectedGroup?.contacts.length ?? 1}
           onBack={() => setSelectedContactId(null)}
           onMove={moveContact}
-          onSelectIndex={openContactAtIndex}
+          onSelectIndex={openContactAtGroupIndex}
         />
       </S.Content>
     );
@@ -110,7 +121,7 @@ export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, 
         </S.ActionStrip>
         {view === 'contacts' ? (
           <ContactList
-            contacts={contacts}
+            groups={contactGroups}
             projectsById={projectsById}
             onSelect={openContact}
           />
@@ -136,26 +147,26 @@ function ModeSwitch({ view, setView }: { readonly view: StaffViewKey; readonly s
 }
 
 function ContactList({
-  contacts,
+  groups,
   projectsById,
   onSelect,
 }: {
-  readonly contacts: readonly Contact[];
+  readonly groups: readonly ContactGroup[];
   readonly projectsById: ReadonlyMap<string, ProjectSummary>;
   readonly onSelect: (contact: Contact) => void;
 }) {
-  if (contacts.length === 0) return <S.EmptyState>아직 채용을 희망하는 회사가 없습니다</S.EmptyState>;
+  if (groups.length === 0) return <S.EmptyState>아직 채용을 희망하는 회사가 없습니다</S.EmptyState>;
   return (
     <S.ContactGrid>
-      {contacts.map((contact) => (
+      {groups.map((group) => (
         <S.ContactCard
-          key={contact.id}
+          key={group.key}
           type="button"
-          onClick={() => onSelect(contact)}
+          onClick={() => onSelect(group.contacts[0])}
         >
-          <S.CardTitle>{contact.name ?? '담당자'}</S.CardTitle>
-          <S.ContactOrg>{contact.organization ?? projectsById.get(contact.projectId)?.serviceName ?? '-'}</S.ContactOrg>
-          {contact.status === 'new' ? <S.NewDot /> : null}
+          <S.CardTitle>{studentDisplayName(group.contacts[0])}</S.CardTitle>
+          <S.ContactOrg>{groupSummary(group.contacts, projectsById)}</S.ContactOrg>
+          {group.contacts.some((contact) => contact.status === 'new') ? <S.NewDot /> : null}
         </S.ContactCard>
       ))}
     </S.ContactGrid>
@@ -171,8 +182,47 @@ function filterContacts(
   if (!normalized) return contacts;
   return contacts.filter((contact) => {
     const project = projectsById.get(contact.projectId);
-    return [contact.name, contact.organization, contact.email, contact.phone, project?.serviceName, project?.teamName]
+    return [contact.targetMemberUser?.name, contact.name, contact.organization, contact.email, contact.phone, project?.serviceName, project?.teamName]
       .filter(Boolean)
       .some((value) => value?.toLowerCase().includes(normalized));
   });
+}
+
+type ContactGroup = {
+  readonly key: string;
+  readonly contacts: readonly Contact[];
+};
+
+function groupContactsByTargetStudent(contacts: readonly Contact[]): readonly ContactGroup[] {
+  const groups = new Map<string, Contact[]>();
+  for (const contact of contacts) {
+    const key = contactGroupKey(contact);
+    const group = groups.get(key);
+    if (group) {
+      group.push(contact);
+      continue;
+    }
+    groups.set(key, [contact]);
+  }
+  return [...groups.entries()].map(([key, groupContacts]) => ({
+    key,
+    contacts: groupContacts,
+  }));
+}
+
+function contactGroupKey(contact: Contact): string {
+  return contact.targetMemberUserId || contact.id;
+}
+
+function studentDisplayName(contact: Contact): string {
+  return contact.targetMemberUser?.name ?? '학생';
+}
+
+function groupSummary(
+  contacts: readonly Contact[],
+  projectsById: ReadonlyMap<string, ProjectSummary>,
+): string {
+  const first = contacts[0];
+  const firstName = first.organization ?? projectsById.get(first.projectId)?.serviceName ?? '-';
+  return contacts.length > 1 ? `${firstName} 외 ${contacts.length - 1}건` : firstName;
 }

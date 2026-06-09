@@ -1,4 +1,4 @@
-import type { AdminSnapshot, AdminUser, Feedback, HomeSnapshot, ProjectSummary, StudentSnapshot } from '../../api/adminApi';
+import type { AdminSnapshot, AdminUser, Contact, Feedback, HomeSnapshot, ProjectSummary, StudentSnapshot } from '../../api/adminApi';
 
 export type PreviewRole = 'admin' | 'teacher' | 'student';
 
@@ -83,22 +83,7 @@ function createStaffSnapshot(user: AdminUser): AdminSnapshot & { readonly kind: 
       ]),
       nextCursor: null,
     },
-    contacts: {
-      items: previewProjects.slice(0, 4).map((projectItem, index) => ({
-        id: `preview-contact-${index}`,
-        projectId: projectItem.id,
-        name: ['김민준', '이서연', '박지훈', '최하린'][index] ?? '담당자',
-        organization: ['네이버 클라우드', '카카오 엔터프라이즈', '토스', '당근'][index] ?? '기업',
-        position: '서비스 기획자',
-        email: `contact${index + 1}@example.com`,
-        phone: `010-0000-000${index}`,
-        memo: `${projectItem.serviceName} 팀과 후속 미팅을 희망합니다.`,
-        status: index % 2 === 0 ? 'new' : 'checked',
-        createdAt: `2026-06-0${index + 1}T10:00:00.000Z`,
-        project: projectItem,
-      })),
-      nextCursor: null,
-    },
+    contacts: { items: previewContacts(), nextCursor: null },
     users: { items: [adminUser, teacherUser, studentUser], nextCursor: null },
     bannedWords: {
       items: [
@@ -146,4 +131,22 @@ function feedback(id: string, projectId: string, content: string): Feedback {
     moderationReason: null,
     createdAt: '2026-06-09T12:00:00.000Z',
   };
+}
+
+function previewContacts(): readonly Contact[] {
+  return previewProjects.slice(0, 4).map((projectItem, index) => ({
+    id: `preview-contact-${index}`,
+    projectId: projectItem.id,
+    targetMemberUserId: index < 3 ? studentUser.id : 'preview-student-2',
+    targetMemberUser: index < 3 ? studentUser : { ...studentUser, id: 'preview-student-2', name: '3508 김하린' },
+    name: ['김민준', '이서연', '박지훈', '최하린'][index] ?? '담당자',
+    organization: ['네이버 클라우드', '카카오 엔터프라이즈', '토스', '당근'][index] ?? '기업',
+    position: '서비스 기획자',
+    email: `contact${index + 1}@example.com`,
+    phone: `010-0000-000${index}`,
+    memo: `${projectItem.serviceName} 팀과 후속 미팅을 희망합니다.`,
+    status: index % 2 === 0 ? 'new' : 'checked',
+    createdAt: `2026-06-0${index + 1}T10:00:00.000Z`,
+    project: projectItem,
+  }));
 }
