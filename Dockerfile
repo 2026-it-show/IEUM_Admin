@@ -22,18 +22,44 @@ RUN corepack enable && corepack prepare yarn@1.22.22 --activate && yarn install 
 COPY . .
 RUN yarn build
 
-FROM nginx:1.29-alpine
+FROM node:22-alpine
 
-COPY --from=build /app/dist /usr/share/nginx/html
-RUN printf '%s\n' \
-  'server {' \
-  '  listen 3000;' \
-  '  server_name _;' \
-  '  root /usr/share/nginx/html;' \
-  '  index index.html;' \
-  '  location / {' \
-  '    try_files $uri $uri/ /index.html;' \
-  '  }' \
-  '}' > /etc/nginx/conf.d/default.conf
+WORKDIR /app
+
+COPY --from=build /app/dist ./dist
+RUN cat > server.mjs <<'EOF'
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
+import { extname, join, normalize } from 'node:path';
+import { createServer } from 'node:http';
+
+const root = join(process.cwd(), 'dist');
+const types = {
+  '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+};
+
+const resolveFile = async (url) => {
+  const pathname = decodeURIComponent(new URL(url, 'http://localhost').pathname);
+  const normalized = normalize(pathname).replace(/^(\.\.[/\\])+/, '');
+  const candidate = join(root, normalized === '/' ? 'index.html' : normalized);
+  try {
+    const file = await stat(candidate);
+    return file.isFile() ? candidate : join(root, 'index.html');
+  } catch {
+    return join(root, 'index.html');
+  }
+};
+
+createServer(async (request, response) => {
+  const filePath = await resolveFile(request.url ?? '/');
+  response.setHeader('Content-Type', types[extname(filePath)] ?? 'application/octet-stream');
+  createReadStream(filePath).pipe(response);
+}).listen(3000, '0.0.0.0');
+EOF
 
 EXPOSE 3000
+CMD ["node", "server.mjs"]
