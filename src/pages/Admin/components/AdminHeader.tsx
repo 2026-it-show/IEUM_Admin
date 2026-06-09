@@ -13,18 +13,20 @@ type AdminHeaderProps = {
 };
 
 export function AdminHeader({ user, token, profileOpen, setProfileOpen, navigateLogin }: AdminHeaderProps) {
+  const profileImageSrc = user.profileImageUrl ?? profileAvatarSrc;
+
   return (
     <S.Topbar>
       <S.HeaderLogo src="/assets/brand/ieum-header-logo.png" alt="IEUM" />
       <S.ProfileButton type="button" onClick={() => setProfileOpen(!profileOpen)} aria-label="프로필">
         <S.ProfileAvatar>
-          <img src={profileAvatarSrc} alt="" aria-hidden="true" />
+          <img src={profileImageSrc} alt="" aria-hidden="true" />
         </S.ProfileAvatar>
       </S.ProfileButton>
       {profileOpen ? (
         <S.ProfileCard>
           <S.ProfileRow>
-            <S.LargeAvatar src={profileAvatarSrc} alt="" aria-hidden="true" />
+            <S.LargeAvatar src={profileImageSrc} alt="" aria-hidden="true" />
             <div>
               <S.ProfileName>{user.name}</S.ProfileName>
               <S.ProfileEmail>{user.email}</S.ProfileEmail>

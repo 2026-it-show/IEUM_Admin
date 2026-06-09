@@ -54,6 +54,7 @@ export const ProfileAvatar = styled.span`
   img {
     width: 100%;
     height: 100%;
+    object-fit: cover;
   }
 `;
 
@@ -81,6 +82,7 @@ export const LargeAvatar = styled.img`
   height: 64px;
   border-radius: 50%;
   flex: 0 0 auto;
+  object-fit: cover;
 `;
 
 export const ProfileName = styled.p`

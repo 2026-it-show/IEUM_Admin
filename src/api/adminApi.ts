@@ -4,6 +4,7 @@ export type AdminUser = {
   readonly id: string;
   readonly name: string;
   readonly email: string;
+  readonly profileImageUrl: string | null;
   readonly role: 'student' | 'teacher' | 'admin';
 };
 

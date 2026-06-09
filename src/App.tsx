@@ -70,13 +70,19 @@ function readMirimOAuthConfig(): MirimOAuthConfig | null {
     clientSecret,
     redirectUri,
     oauthServerUrl: readEnv('VITE_MIRIM_OAUTH_SERVER_URL'),
-    scopes,
+    scopes: appendRequiredScope(scopes, 'profileImageUrl'),
   };
 }
 
 function readEnv(key: string): string | undefined {
   const value = import.meta.env[key];
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function appendRequiredScope(scopes: string, requiredScope: string): string {
+  const values = scopes.split(',').map((scope) => scope.trim()).filter(Boolean);
+  if (values.includes(requiredScope)) return values.join(',');
+  return [...values, requiredScope].join(',');
 }
 
 export default App;

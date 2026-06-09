@@ -14,6 +14,7 @@ const teacherUser: AdminUser = {
   id: 'preview-teacher',
   name: '3515 정지영',
   email: 'teacher@e-mirim.hs.kr',
+  profileImageUrl: null,
   role: 'teacher',
 };
 
@@ -21,6 +22,7 @@ const adminUser: AdminUser = {
   id: 'preview-admin',
   name: '관리자',
   email: 'admin@e-mirim.hs.kr',
+  profileImageUrl: null,
   role: 'admin',
 };
 
@@ -28,6 +30,7 @@ const studentUser: AdminUser = {
   id: 'preview-student',
   name: '3515 정지영',
   email: 'd2416@e-mirim.hs.kr',
+  profileImageUrl: null,
   role: 'student',
 };
 
