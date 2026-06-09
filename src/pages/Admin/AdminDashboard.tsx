@@ -69,7 +69,7 @@ function AdminDashboard() {
   return (
     <S.Page>
       <S.Topbar>
-        <S.Logo src="/assets/figma/header-logo.svg" alt="IEUM" />
+        <S.Logo src="/assets/brand/ieum-header-logo.svg" alt="IEUM" />
         <S.ProfileButton type="button" onClick={() => setProfileOpen((open) => !open)}>
           {initialOf(snapshot.user.name)}
         </S.ProfileButton>
