@@ -103,6 +103,11 @@ export function clearStoredToken(): void {
   localStorage.removeItem('ieum_admin_token');
 }
 
+export async function logout(accessToken: string): Promise<void> {
+  await request<{ status: string }>('/auth/logout', accessToken, { method: 'POST' });
+  clearStoredToken();
+}
+
 export async function fetchAdminSnapshot(accessToken: string): Promise<AdminSnapshot> {
   const [user, dashboard, projects, feedback, contacts, users, bannedWords] = await Promise.all([
     request<AdminUser>('/auth/me', accessToken),
@@ -136,6 +141,28 @@ export async function updateContactStatus(
     method: 'PATCH',
     body: JSON.stringify({ status }),
   });
+}
+
+export async function fetchContactDetail(accessToken: string, id: string): Promise<Contact> {
+  return request<Contact>(`/admin/contacts/${id}`, accessToken);
+}
+
+export async function createBannedWord(accessToken: string, word: string): Promise<BannedWord> {
+  return request<BannedWord>('/admin/banned-words', accessToken, {
+    method: 'POST',
+    body: JSON.stringify({ word }),
+  });
+}
+
+export async function updateBannedWord(accessToken: string, id: string, isActive: boolean): Promise<BannedWord> {
+  return request<BannedWord>(`/admin/banned-words/${id}`, accessToken, {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive }),
+  });
+}
+
+export async function deleteBannedWord(accessToken: string, id: string): Promise<void> {
+  await request<{ status: string }>(`/admin/banned-words/${id}`, accessToken, { method: 'DELETE' });
 }
 
 async function request<T>(path: string, accessToken: string, init: RequestInit = {}): Promise<T> {

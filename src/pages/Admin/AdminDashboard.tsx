@@ -1,25 +1,32 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  clearStoredToken,
+  createBannedWord,
+  deleteBannedWord,
   fetchAdminSnapshot,
+  fetchContactDetail,
+  logout,
   readStoredToken,
+  updateBannedWord,
   updateContactStatus,
   updateFeedbackStatus,
   type AdminSnapshot,
+  type BannedWord,
   type Contact,
   type Feedback,
   type ProjectSummary,
 } from '../../api/adminApi';
 import * as S from './AdminDashboard.styled';
 
-type ViewKey = 'feedback' | 'contacts' | 'projects' | 'users';
+type ViewKey = 'feedback' | 'contacts' | 'projects' | 'users' | 'bannedWords';
 type SortKey = 'latest' | 'oldest';
+type LoadStatus = 'loading' | 'ready' | 'error';
 
 const VIEW_LABELS: Record<ViewKey, string> = {
   feedback: '피드백',
   contacts: '채용',
   projects: '프로젝트',
   users: '사용자',
+  bannedWords: '금칙어',
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -39,18 +46,21 @@ function AdminDashboard() {
   const [snapshot, setSnapshot] = useState<AdminSnapshot | null>(null);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [status, setStatus] = useState<LoadStatus>('loading');
   const [message, setMessage] = useState('');
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     await loadSnapshot(token, setSnapshot, setStatus, setMessage);
-  };
+  }, [token]);
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [refresh]);
 
-  if (status === 'loading') return <S.Center>관리자 데이터를 불러오는 중입니다</S.Center>;
+  if (status === 'loading') {
+    return <DashboardSkeleton />;
+  }
+
   if (status === 'error' || !snapshot) {
     return (
       <S.Center>
@@ -70,7 +80,7 @@ function AdminDashboard() {
     <S.Page>
       <S.Topbar>
         <S.Logo src="/assets/brand/ieum-header-logo.svg" alt="IEUM" />
-        <S.ProfileButton type="button" onClick={() => setProfileOpen((open) => !open)}>
+        <S.ProfileButton type="button" onClick={() => setProfileOpen((open) => !open)} aria-label="프로필">
           {initialOf(snapshot.user.name)}
         </S.ProfileButton>
         {profileOpen ? (
@@ -84,8 +94,8 @@ function AdminDashboard() {
             </S.ProfileRow>
             <S.LogoutButton
               type="button"
-              onClick={() => {
-                clearStoredToken();
+              onClick={async () => {
+                await logout(token).catch(() => undefined);
                 window.location.assign('/');
               }}
             >
@@ -96,6 +106,25 @@ function AdminDashboard() {
       </S.Topbar>
 
       <S.Content>
+        <S.StatsGrid aria-label="관리자 통계">
+          <S.StatCard>
+            <span>프로젝트</span>
+            <strong>{snapshot.dashboard.projectCount}</strong>
+          </S.StatCard>
+          <S.StatCard>
+            <span>피드백</span>
+            <strong>{snapshot.dashboard.feedbackCount}</strong>
+          </S.StatCard>
+          <S.StatCard>
+            <span>채용 문의</span>
+            <strong>{snapshot.dashboard.contactCount}</strong>
+          </S.StatCard>
+          <S.StatCard>
+            <span>관심 표시</span>
+            <strong>{snapshot.dashboard.interestCount}</strong>
+          </S.StatCard>
+        </S.StatsGrid>
+
         <S.Toolbar>
           <S.TabGroup>
             {(Object.keys(VIEW_LABELS) as ViewKey[]).map((key) => (
@@ -120,12 +149,7 @@ function AdminDashboard() {
 
         {message ? <S.Notice>{message}</S.Notice> : null}
         {view === 'feedback' ? (
-          <FeedbackBoard
-            feedback={sortedFeedback}
-            projectsById={projectsById}
-            token={token}
-            onChanged={refresh}
-          />
+          <FeedbackBoard feedback={sortedFeedback} projectsById={projectsById} token={token} onChanged={refresh} />
         ) : null}
         {view === 'contacts' ? (
           <ContactBoard
@@ -139,6 +163,34 @@ function AdminDashboard() {
         ) : null}
         {view === 'projects' ? <ProjectBoard projects={snapshot.projects.items} /> : null}
         {view === 'users' ? <UserBoard snapshot={snapshot} /> : null}
+        {view === 'bannedWords' ? <BannedWordBoard words={snapshot.bannedWords.items} token={token} onChanged={refresh} /> : null}
+      </S.Content>
+    </S.Page>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <S.Page>
+      <S.Topbar>
+        <S.Logo src="/assets/brand/ieum-header-logo.svg" alt="IEUM" />
+        <S.ProfileButton type="button" aria-label="프로필" disabled />
+      </S.Topbar>
+      <S.Content>
+        <S.StatsGrid>
+          {Array.from({ length: 4 }).map((_, index) => (
+            <S.SkeletonCard key={index} />
+          ))}
+        </S.StatsGrid>
+        <S.Toolbar>
+          <S.SkeletonTabs />
+          <S.SkeletonSelect />
+        </S.Toolbar>
+        <S.ProjectGrid>
+          {Array.from({ length: 8 }).map((_, index) => (
+            <S.SkeletonPanel key={index} />
+          ))}
+        </S.ProjectGrid>
       </S.Content>
     </S.Page>
   );
@@ -162,8 +214,8 @@ function FeedbackBoard({
         const project = projectsById.get(item.projectId);
         return (
           <S.FeedbackCard key={item.id}>
-            <S.ProjectChip $color={projectColor(project)}>{project?.serviceName ?? 'Project'}</S.ProjectChip>
-            <S.CardTitle>{project?.teamName ?? project?.serviceName ?? '프로젝트'}</S.CardTitle>
+            <S.ProjectChip $color={projectColor(project)}>{project?.boothSlot ?? project?.serviceName ?? 'Project'}</S.ProjectChip>
+            <S.CardTitle>{project?.serviceName ?? '프로젝트'}</S.CardTitle>
             <S.CardBody>{item.content}</S.CardBody>
             <S.CardFooter>
               <span>{formatDate(item.createdAt)}</span>
@@ -200,23 +252,7 @@ function ContactBoard({
   readonly onChanged: () => Promise<void>;
 }) {
   if (selectedContact) {
-    return (
-      <S.DetailShell>
-        <S.BackButton type="button" onClick={() => onSelect(null)}>‹</S.BackButton>
-        <S.DetailTitle>{selectedContact.name ?? '담당자'}</S.DetailTitle>
-        <S.DetailPanel>
-          <S.DetailLabel>기업정보</S.DetailLabel>
-          <S.DetailValue>{selectedContact.organization ?? '-'}</S.DetailValue>
-          <S.DetailValue>{projectsById.get(selectedContact.projectId)?.serviceName ?? '-'}</S.DetailValue>
-          <S.DetailLabel>담당자정보</S.DetailLabel>
-          <S.DetailValue>{selectedContact.name ?? '-'}</S.DetailValue>
-          <S.DetailValue>{selectedContact.position ?? '-'}</S.DetailValue>
-          <S.DetailValue>{selectedContact.phone ?? '-'}</S.DetailValue>
-          <S.DetailValue>{selectedContact.email ?? '-'}</S.DetailValue>
-          <S.DetailMemo>{selectedContact.memo ?? ''}</S.DetailMemo>
-        </S.DetailPanel>
-      </S.DetailShell>
-    );
+    return <ContactDetail contact={selectedContact} project={projectsById.get(selectedContact.projectId)} onBack={() => onSelect(null)} />;
   }
   if (contacts.length === 0) return <S.EmptyState>아직 채용을 희망하는 회사가 없습니다</S.EmptyState>;
   return (
@@ -226,7 +262,8 @@ function ContactBoard({
           key={contact.id}
           type="button"
           onClick={async () => {
-            onSelect(contact);
+            const detail = await fetchContactDetail(token, contact.id).catch(() => contact);
+            onSelect(detail);
             if (contact.status === 'new') {
               await updateContactStatus(token, contact.id, 'checked');
               await onChanged();
@@ -242,6 +279,36 @@ function ContactBoard({
   );
 }
 
+function ContactDetail({
+  contact,
+  project,
+  onBack,
+}: {
+  readonly contact: Contact;
+  readonly project: ProjectSummary | undefined;
+  readonly onBack: () => void;
+}) {
+  return (
+    <S.DetailShell>
+      <S.BackButton type="button" onClick={onBack} aria-label="목록으로 돌아가기">
+        ‹
+      </S.BackButton>
+      <S.DetailTitle>{contact.name ?? '담당자'}</S.DetailTitle>
+      <S.DetailPanel>
+        <S.DetailLabel>기업정보</S.DetailLabel>
+        <S.DetailValue>{contact.organization ?? '-'}</S.DetailValue>
+        <S.DetailValue>{project?.serviceName ?? '-'}</S.DetailValue>
+        <S.DetailLabel>담당자정보</S.DetailLabel>
+        <S.DetailValue>{contact.name ?? '-'}</S.DetailValue>
+        <S.DetailValue>{contact.position ?? '-'}</S.DetailValue>
+        <S.DetailValue>{contact.phone ?? '-'}</S.DetailValue>
+        <S.DetailValue>{contact.email ?? '-'}</S.DetailValue>
+        <S.DetailMemo>{contact.memo ?? '메모가 없습니다'}</S.DetailMemo>
+      </S.DetailPanel>
+    </S.DetailShell>
+  );
+}
+
 function ProjectBoard({ projects }: { readonly projects: readonly ProjectSummary[] }) {
   return (
     <S.ProjectGrid>
@@ -253,6 +320,7 @@ function ProjectBoard({ projects }: { readonly projects: readonly ProjectSummary
           <S.CardFooter>
             <span>피드백 {project.feedbackCount}</span>
             <span>채용 {project.contactCount}</span>
+            <span>관심 {project.interestCount ?? 0}</span>
           </S.CardFooter>
         </S.ProjectCard>
       ))}
@@ -274,10 +342,67 @@ function UserBoard({ snapshot }: { readonly snapshot: AdminSnapshot }) {
   );
 }
 
+function BannedWordBoard({
+  words,
+  token,
+  onChanged,
+}: {
+  readonly words: readonly BannedWord[];
+  readonly token: string;
+  readonly onChanged: () => Promise<void>;
+}) {
+  const [word, setWord] = useState('');
+  return (
+    <S.Stack>
+      <S.WordForm
+        onSubmit={async (event) => {
+          event.preventDefault();
+          const trimmed = word.trim();
+          if (!trimmed) return;
+          await createBannedWord(token, trimmed);
+          setWord('');
+          await onChanged();
+        }}
+      >
+        <S.WordInput value={word} onChange={(event) => setWord(event.target.value)} placeholder="금칙어 추가" />
+        <S.PrimaryButton type="submit">추가</S.PrimaryButton>
+      </S.WordForm>
+      <S.ContactGrid>
+        {words.map((item) => (
+          <S.ContactCard key={item.id} type="button">
+            <S.CardTitle>{item.word}</S.CardTitle>
+            <S.ContactOrg>{item.isActive ? '활성' : '비활성'}</S.ContactOrg>
+            <S.CardFooter>
+              <S.MiniButton
+                type="button"
+                onClick={async () => {
+                  await updateBannedWord(token, item.id, !item.isActive);
+                  await onChanged();
+                }}
+              >
+                {item.isActive ? '끄기' : '켜기'}
+              </S.MiniButton>
+              <S.MiniButton
+                type="button"
+                onClick={async () => {
+                  await deleteBannedWord(token, item.id);
+                  await onChanged();
+                }}
+              >
+                삭제
+              </S.MiniButton>
+            </S.CardFooter>
+          </S.ContactCard>
+        ))}
+      </S.ContactGrid>
+    </S.Stack>
+  );
+}
+
 async function loadSnapshot(
   token: string,
   setSnapshot: (snapshot: AdminSnapshot | null) => void,
-  setStatus: (status: 'loading' | 'ready' | 'error') => void,
+  setStatus: (status: LoadStatus) => void,
   setMessage: (message: string) => void,
 ): Promise<void> {
   if (!token) {
