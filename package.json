@@ -1,7 +1,8 @@
 {
-  "name": "ieum-client",
+  "name": "ieum-admin",
   "private": true,
   "version": "0.0.0",
+  "packageManager": "yarn@1.22.22",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,10 +11,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "mirim-oauth-react": "1.1.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.17.0",
-    "styled-components": "^6.4.2"
+    "styled-components": "^6.4.2",
+    "tslib": "^2.8.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

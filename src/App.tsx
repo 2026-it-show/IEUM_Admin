@@ -1,25 +1,88 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { ThemeProvider } from 'styled-components'; // 💡 ThemeProvider 임포트 추가
-import { GlobalStyle, theme } from './styles'; // 💡 안전하게 상대 경로로 수정 (필요시 @/styles로 유지 가능)
+import { MirimOAuthProvider } from 'mirim-oauth-react';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { ThemeProvider } from 'styled-components';
+import { RolePreviewSwitch } from './components/RolePreviewSwitch';
+import { GlobalStyle, theme } from './styles';
+import AdminDashboard from './pages/Admin/AdminDashboard';
 import Login from './pages/Home/Login';
-import StudentHome from './pages/Student/StudentHome';
-import TeacherHome from './pages/Teacher/TeacherHome';
+
+type MirimOAuthConfig = {
+  readonly clientId: string;
+  readonly clientSecret: string;
+  readonly redirectUri: string;
+  readonly oauthServerUrl: string | undefined;
+  readonly scopes: string;
+};
+
+const mirimOAuthConfig = readMirimOAuthConfig();
 
 function App() {
   return (
     <ThemeProvider theme={theme}>
       <BrowserRouter>
         <GlobalStyle />
+        <RolePreviewSwitch />
 
         <Routes>
-          <Route path="/" element={<Login />} />
-          <Route path="/student/home" element={<StudentHome />} />
-          <Route path="/teacher/home" element={<TeacherHome />} />
-
+          <Route path="/" element={<AdminDashboard />} />
+          <Route path="/login" element={<LoginRoute />} />
+          <Route path="/oauth/*" element={<LoginRoute />} />
+          <Route path="/admin" element={<Navigate to="/" replace />} />
+          <Route path="/student/home" element={<Navigate to="/" replace />} />
+          <Route path="/teacher/home" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>
   );
+}
+
+function LoginRoute() {
+  if (!mirimOAuthConfig) {
+    return <Login oauthEnabled={false} />;
+  }
+
+  return (
+    <MirimOAuthProvider
+      clientId={mirimOAuthConfig.clientId}
+      clientSecret={mirimOAuthConfig.clientSecret}
+      redirectUri={mirimOAuthConfig.redirectUri}
+      oauthServerUrl={mirimOAuthConfig.oauthServerUrl}
+      scopes={mirimOAuthConfig.scopes}
+    >
+      <Login oauthEnabled />
+    </MirimOAuthProvider>
+  );
+}
+
+function readMirimOAuthConfig(): MirimOAuthConfig | null {
+  const clientId = readEnv('VITE_MIRIM_OAUTH_CLIENT_ID');
+  const clientSecret = readEnv('VITE_MIRIM_OAUTH_CLIENT_SECRET');
+  const redirectUri = readEnv('VITE_MIRIM_OAUTH_REDIRECT_URI');
+  const scopes = readEnv('VITE_MIRIM_OAUTH_SCOPES');
+
+  if (!clientId || !clientSecret || !redirectUri || !scopes) {
+    return null;
+  }
+
+  return {
+    clientId,
+    clientSecret,
+    redirectUri,
+    oauthServerUrl: readEnv('VITE_MIRIM_OAUTH_SERVER_URL'),
+    scopes: appendRequiredScope(scopes, 'profileImageUrl'),
+  };
+}
+
+function readEnv(key: string): string | undefined {
+  const value = import.meta.env[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function appendRequiredScope(scopes: string, requiredScope: string): string {
+  const values = scopes.split(',').map((scope) => scope.trim()).filter(Boolean);
+  if (values.includes(requiredScope)) return values.join(',');
+  return [...values, requiredScope].join(',');
 }
 
 export default App;

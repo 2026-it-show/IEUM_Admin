@@ -29,17 +29,15 @@ export const GlobalStyle = createGlobalStyle`
     background-color: #2B2B2B;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    min-height: 100%;
+    overflow: auto;
   }
 
   #root {
-    width: ${({ theme }) => theme.viewport.width};
-    height: ${({ theme }) => theme.viewport.height};
+    width: 100%;
+    min-height: 100dvh;
     background-color: ${({ theme }) => theme.colors.white};
-    overflow: hidden;
+    overflow: visible;
     position: relative;
   }
 

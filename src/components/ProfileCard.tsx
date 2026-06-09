@@ -90,8 +90,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ onClose }) => {
     <CardContainer>
       <UserInfoSection>
         <AvatarCircle>
-          {/* 기본 프로필 아이콘 SVG */}
-            <img src="/assets/icons/profile_logo.svg" alt="IEUM" style={{ width: '64px', height: '64px' }} /> 
+            <img src="/assets/icons/profile_logo.webp" alt="IEUM" style={{ width: '64px', height: '64px' }} /> 
         </AvatarCircle>
         <TextGroup>
           <UserName>3515 정지영</UserName>
