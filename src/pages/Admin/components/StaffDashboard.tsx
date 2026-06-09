@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   fetchContactDetail,
   updateContactStatus,
@@ -26,18 +26,61 @@ type StaffDashboardProps = {
 export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, refresh, isPreview = false }: StaffDashboardProps) {
   const [query, setQuery] = useState('');
   const [classFilter, setClassFilter] = useState('전체');
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [checkedContactIds, setCheckedContactIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [contactDetails, setContactDetails] = useState<Readonly<Record<string, Contact>>>({});
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const projectsById = useMemo(() => new Map(snapshot.projects.items.map((project) => [project.id, project])), [snapshot.projects.items]);
-  const contacts = sortByDate(filterContacts(snapshot.contacts.items, projectsById, query), sort);
+  const displayedContacts = useMemo(
+    () => snapshot.contacts.items.map((contact) => (checkedContactIds.has(contact.id) ? { ...contact, status: 'checked' as const } : contact)),
+    [checkedContactIds, snapshot.contacts.items],
+  );
+  const contacts = sortByDate(filterContacts(displayedContacts, projectsById, query), sort);
+  const selectedIndex = selectedContactId ? contacts.findIndex((contact) => contact.id === selectedContactId) : -1;
+  const selectedContact = selectedIndex >= 0 ? contactDetails[selectedContactId ?? ''] ?? contacts[selectedIndex] : null;
   const feedback = sortByDate(
     snapshot.feedback.items.map((item) => ({ ...item, project: projectsById.get(item.projectId) })),
     sort,
   );
 
+  const markContactChecked = useCallback((contact: Contact) => {
+    setCheckedContactIds((ids) => new Set(ids).add(contact.id));
+    setContactDetails((details) => ({ ...details, [contact.id]: { ...contact, status: 'checked' } }));
+  }, []);
+
+  const openContact = useCallback(async (contact: Contact) => {
+    setSelectedContactId(contact.id);
+    const detail = await fetchContactDetail(token, contact.id).catch(() => contact);
+    setContactDetails((details) => ({ ...details, [contact.id]: detail }));
+    if (!isPreview && contact.status === 'new') {
+      const checked = await updateContactStatus(token, contact.id, 'checked').catch(() => null);
+      if (checked) markContactChecked(checked);
+    }
+  }, [isPreview, markContactChecked, token]);
+
+  const openContactAtIndex = useCallback((index: number) => {
+    const contact = contacts[index];
+    if (!contact) return;
+    void openContact(contact);
+  }, [contacts, openContact]);
+
+  const moveContact = useCallback((direction: -1 | 1) => {
+    if (selectedIndex < 0 || contacts.length === 0) return;
+    const nextIndex = (selectedIndex + direction + contacts.length) % contacts.length;
+    openContactAtIndex(nextIndex);
+  }, [contacts.length, openContactAtIndex, selectedIndex]);
+
   if (selectedContact) {
     return (
       <S.Content>
-        <ContactDetail contact={selectedContact} project={projectsById.get(selectedContact.projectId)} onBack={() => setSelectedContact(null)} />
+        <ContactDetail
+          contact={selectedContact}
+          project={projectsById.get(selectedContact.projectId)}
+          currentIndex={selectedIndex}
+          totalCount={contacts.length}
+          onBack={() => setSelectedContactId(null)}
+          onMove={moveContact}
+          onSelectIndex={openContactAtIndex}
+        />
       </S.Content>
     );
   }
@@ -69,10 +112,7 @@ export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, 
           <ContactList
             contacts={contacts}
             projectsById={projectsById}
-            token={token}
-            onSelect={setSelectedContact}
-            onChanged={refresh}
-            isPreview={isPreview}
+            onSelect={openContact}
           />
         ) : (
           <FeedbackList feedback={feedback} token={token} canModerate={!isPreview} />
@@ -98,17 +138,11 @@ function ModeSwitch({ view, setView }: { readonly view: StaffViewKey; readonly s
 function ContactList({
   contacts,
   projectsById,
-  token,
   onSelect,
-  onChanged,
-  isPreview,
 }: {
   readonly contacts: readonly Contact[];
   readonly projectsById: ReadonlyMap<string, ProjectSummary>;
-  readonly token: string;
   readonly onSelect: (contact: Contact) => void;
-  readonly onChanged: () => Promise<void>;
-  readonly isPreview: boolean;
 }) {
   if (contacts.length === 0) return <S.EmptyState>아직 채용을 희망하는 회사가 없습니다</S.EmptyState>;
   return (
@@ -117,13 +151,7 @@ function ContactList({
         <S.ContactCard
           key={contact.id}
           type="button"
-          onClick={async () => {
-            onSelect(await fetchContactDetail(token, contact.id).catch(() => contact));
-            if (!isPreview && contact.status === 'new') {
-              await updateContactStatus(token, contact.id, 'checked');
-              await onChanged();
-            }
-          }}
+          onClick={() => onSelect(contact)}
         >
           <S.CardTitle>{contact.name ?? '담당자'}</S.CardTitle>
           <S.ContactOrg>{contact.organization ?? projectsById.get(contact.projectId)?.serviceName ?? '-'}</S.ContactOrg>
