@@ -195,7 +195,7 @@ function MirimOAuthLogin({ setError }: { readonly setError: (message: string) =>
 
   return (
     <LoginButton type="button" onClick={handleLogin} disabled={isLoading}>
-      <MirimLogo src="/assets/mirim-logo.png" alt="" aria-hidden="true" />
+      <MirimLogo src="/assets/mirim-logo.webp" alt="" aria-hidden="true" />
       <ButtonText>{isLoading ? '로그인 중...' : 'Mirim OAuth로 로그인'}</ButtonText>
     </LoginButton>
   );
@@ -219,7 +219,7 @@ function DevTokenLogin({ setError }: { readonly setError: (message: string) => v
   return (
     <>
       <LoginButton type="button" onClick={handleLogin}>
-        <MirimLogo src="/assets/mirim-logo.png" alt="" aria-hidden="true" />
+        <MirimLogo src="/assets/mirim-logo.webp" alt="" aria-hidden="true" />
         <ButtonText>테스트 토큰으로 로그인</ButtonText>
       </LoginButton>
       <TokenPanel
