@@ -107,13 +107,18 @@ type ApiEnvelope<T> = {
   readonly data: T;
 };
 
+type LoginResponse = {
+  readonly user: AdminUser;
+  readonly token: string;
+};
+
 export async function loginWithMirimToken(accessToken: string): Promise<AdminUser> {
-  const user = await request<AdminUser>('/auth/login', accessToken, {
+  const session = await request<LoginResponse>('/auth/login', accessToken, {
     method: 'POST',
     body: JSON.stringify({ accessToken }),
   });
-  localStorage.setItem('ieum_admin_token', accessToken);
-  return user;
+  localStorage.setItem('ieum_admin_token', session.token);
+  return session.user;
 }
 
 export function readStoredToken(): string {
