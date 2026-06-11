@@ -45,6 +45,7 @@ export const ProfileButton = styled.button`
 `;
 
 export const ProfileAvatar = styled.span`
+  display: block;
   width: 36px;
   height: 36px;
   border-radius: 18px;
@@ -54,6 +55,7 @@ export const ProfileAvatar = styled.span`
   img {
     width: 100%;
     height: 100%;
+    border-radius: inherit;
     object-fit: cover;
   }
 `;
@@ -83,6 +85,7 @@ export const LargeAvatar = styled.img`
   border-radius: 50%;
   flex: 0 0 auto;
   object-fit: cover;
+  overflow: hidden;
 `;
 
 export const ProfileName = styled.p`
