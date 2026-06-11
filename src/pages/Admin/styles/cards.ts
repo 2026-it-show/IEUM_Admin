@@ -253,6 +253,20 @@ export const CardFooter = styled.div`
   font-size: 13px;
 `;
 
+export const FeedbackActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+export const MiniDangerButton = styled.button`
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: #fff3f4;
+  color: #e74e5b;
+`;
+
 export const EmptyState = styled.div`
   min-height: 420px;
   display: grid;
