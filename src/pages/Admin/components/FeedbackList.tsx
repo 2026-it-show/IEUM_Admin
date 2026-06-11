@@ -9,9 +9,10 @@ type FeedbackListProps = {
   readonly feedback: readonly FeedbackWithProject[];
   readonly token?: string;
   readonly canModerate?: boolean;
+  readonly isPreview?: boolean;
 };
 
-export function FeedbackList({ feedback, token = '', canModerate = false }: FeedbackListProps) {
+export function FeedbackList({ feedback, token = '', canModerate = false, isPreview = false }: FeedbackListProps) {
   const [statusById, setStatusById] = useState<Record<string, FeedbackStatus | undefined>>({});
   const [pendingById, setPendingById] = useState<Record<string, boolean | undefined>>({});
 
@@ -33,6 +34,10 @@ export function FeedbackList({ feedback, token = '', canModerate = false }: Feed
                   type="button"
                   disabled={Boolean(pendingById[item.id])}
                   onClick={async () => {
+                    if (isPreview) {
+                      setStatusById((previous) => ({ ...previous, [item.id]: nextStatus }));
+                      return;
+                    }
                     setPendingById((previous) => ({ ...previous, [item.id]: true }));
                     try {
                       const updated = await updateFeedbackStatus(token, item.id, nextStatus);

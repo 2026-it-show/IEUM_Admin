@@ -26,6 +26,7 @@ type StaffDashboardProps = {
 export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, refresh, isPreview = false }: StaffDashboardProps) {
   const [query, setQuery] = useState('');
   const [classFilter, setClassFilter] = useState('전체');
+  const [feedbackProjectId, setFeedbackProjectId] = useState('all');
   const [checkedContactIds, setCheckedContactIds] = useState<ReadonlySet<string>>(() => new Set());
   const [contactDetails, setContactDetails] = useState<Readonly<Record<string, Contact>>>({});
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
@@ -34,7 +35,10 @@ export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, 
     () => snapshot.contacts.items.map((contact) => (checkedContactIds.has(contact.id) ? { ...contact, status: 'checked' as const } : contact)),
     [checkedContactIds, snapshot.contacts.items],
   );
-  const contacts = sortByDate(filterContacts(displayedContacts, projectsById, query), sort);
+  const contacts = sortByDate(
+    filterContactsByClass(filterContacts(displayedContacts, projectsById, query), classFilter),
+    sort,
+  );
   const contactGroups = useMemo(() => groupContactsByTargetStudent(contacts), [contacts]);
   const selectedContactFallback = selectedContactId ? contacts.find((contact) => contact.id === selectedContactId) : null;
   const selectedGroupKey = selectedContactFallback ? contactGroupKey(selectedContactFallback) : null;
@@ -46,7 +50,9 @@ export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, 
     ? contactDetails[selectedContactId] ?? selectedGroup?.contacts[selectedIndex] ?? null
     : null;
   const feedback = sortByDate(
-    snapshot.feedback.items.map((item) => ({ ...item, project: projectsById.get(item.projectId) })),
+    snapshot.feedback.items
+      .filter((item) => feedbackProjectId === 'all' || item.projectId === feedbackProjectId)
+      .map((item) => ({ ...item, project: projectsById.get(item.projectId) })),
     sort,
   );
 
@@ -57,9 +63,17 @@ export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, 
 
   const openContact = useCallback(async (contact: Contact) => {
     setSelectedContactId(contact.id);
+    if (isPreview) {
+      if (contact.status === 'new') {
+        markContactChecked(contact);
+        return;
+      }
+      setContactDetails((details) => ({ ...details, [contact.id]: contact }));
+      return;
+    }
     const detail = await fetchContactDetail(token, contact.id).catch(() => contact);
     setContactDetails((details) => ({ ...details, [contact.id]: detail }));
-    if (!isPreview && contact.status === 'new') {
+    if (contact.status === 'new') {
       const checked = await updateContactStatus(token, contact.id, 'checked').catch(() => null);
       if (checked) markContactChecked(checked);
     }
@@ -110,13 +124,31 @@ export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, 
           </S.SortSelect>
         </S.SearchRow>
         <S.ActionStrip>
-          <S.TabGroup aria-label="반 필터">
-            {CLASS_FILTERS.map((label) => (
-              <S.TabButton key={label} type="button" $active={classFilter === label} onClick={() => setClassFilter(label)}>
-                {label}
+          {view === 'contacts' ? (
+            <S.TabGroup aria-label="반 필터">
+              {CLASS_FILTERS.map((label) => (
+                <S.TabButton key={label} type="button" $active={classFilter === label} onClick={() => setClassFilter(label)}>
+                  {label}
+                </S.TabButton>
+              ))}
+            </S.TabGroup>
+          ) : (
+            <S.TabGroup aria-label="팀 필터">
+              <S.TabButton type="button" $active={feedbackProjectId === 'all'} onClick={() => setFeedbackProjectId('all')}>
+                전체
               </S.TabButton>
-            ))}
-          </S.TabGroup>
+              {snapshot.projects.items.map((project) => (
+                <S.TabButton
+                  key={project.id}
+                  type="button"
+                  $active={feedbackProjectId === project.id}
+                  onClick={() => setFeedbackProjectId(project.id)}
+                >
+                  {project.serviceName}
+                </S.TabButton>
+              ))}
+            </S.TabGroup>
+          )}
           <ModeSwitch view={view} setView={setView} />
         </S.ActionStrip>
         {view === 'contacts' ? (
@@ -126,7 +158,7 @@ export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, 
             onSelect={openContact}
           />
         ) : (
-          <FeedbackList feedback={feedback} token={token} canModerate={!isPreview} />
+          <FeedbackList feedback={feedback} token={token} canModerate isPreview={isPreview} />
         )}
         {snapshot.user.role === 'admin' ? <AdminManagement snapshot={snapshot} token={token} onChanged={refresh} isPreview={isPreview} /> : null}
       </S.Desk>
@@ -171,6 +203,23 @@ function ContactList({
       ))}
     </S.ContactGrid>
   );
+}
+
+function filterContactsByClass(
+  contacts: readonly Contact[],
+  classFilter: string,
+): readonly Contact[] {
+  if (classFilter === '전체') return contacts;
+  const classDigit = classFilter.charAt(0);
+  return contacts.filter(
+    (contact) => studentClassDigit(contact.targetMemberUser?.name) === classDigit,
+  );
+}
+
+// 학번 형식 "3515 정지영"에서 둘째 자리가 반
+function studentClassDigit(name: string | undefined): string | null {
+  const matched = name?.trim().match(/^\d(\d)\d{2}\b/);
+  return matched?.[1] ?? null;
 }
 
 function filterContacts(

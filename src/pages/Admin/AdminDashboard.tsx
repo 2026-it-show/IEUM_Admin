@@ -28,7 +28,7 @@ function AdminDashboard() {
 
   const refresh = useCallback(async () => {
     if (!token) {
-      navigate('/login', { replace: true });
+      navigate('/?preview=student', { replace: true });
       return;
     }
     await loadSnapshot(token, setSnapshot, setStatus, setMessage, navigate);

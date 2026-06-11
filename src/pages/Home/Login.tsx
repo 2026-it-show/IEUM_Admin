@@ -1,7 +1,7 @@
 import { useMirimOAuth } from 'mirim-oauth-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginWithMirimToken } from '../../api/adminApi';
+import { loginWithMirimToken, readStoredToken } from '../../api/adminApi';
 import * as S from './Login.styled';
 
 type LoginProps = {
@@ -9,7 +9,13 @@ type LoginProps = {
 };
 
 function Login({ oauthEnabled }: LoginProps) {
+  const navigate = useNavigate();
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!readStoredToken()) return;
+    navigate('/', { replace: true });
+  }, [navigate]);
 
   return (
     <S.OuterContainer>
@@ -36,11 +42,20 @@ function MirimOAuthLogin({ setError }: { readonly setError: (message: string) =>
   const navigate = useNavigate();
   const { accessToken, isLoading, logIn, oauth } = useMirimOAuth();
   const mirimAccessToken = oauth?.accessToken ?? accessToken;
+  const completedTokenRef = useRef<string | null>(null);
 
   const completeLogin = useCallback(
     async (token: string) => {
-      await loginWithMirimToken(token);
-      navigate('/', { replace: true });
+      // effect와 클릭 핸들러가 같은 토큰으로 중복 호출하는 것을 방지
+      if (completedTokenRef.current === token) return;
+      completedTokenRef.current = token;
+      try {
+        await loginWithMirimToken(token);
+        navigate('/', { replace: true });
+      } catch (caught) {
+        completedTokenRef.current = null;
+        throw caught;
+      }
     },
     [navigate],
   );
@@ -57,8 +72,10 @@ function MirimOAuthLogin({ setError }: { readonly setError: (message: string) =>
     try {
       setError('');
       await logIn();
-      if (mirimAccessToken) {
-        await completeLogin(mirimAccessToken);
+      // 렌더 시점의 stale 값 대신 logIn 완료 직후 인스턴스에서 토큰을 읽는다
+      const freshToken = oauth?.accessToken ?? null;
+      if (freshToken) {
+        await completeLogin(freshToken);
       }
     } catch (caught) {
       if (!(caught instanceof Error)) throw caught;
