@@ -89,6 +89,8 @@ export const DetailArrow = styled.button<{ readonly $direction: 'left' | 'right'
 `;
 
 export const DetailPanel = styled.div`
+  /* 화살표가 없을 때(연락처 1건)도 가운데 콘텐츠 칸을 차지해야 한다 */
+  grid-column: 2;
   width: 100%;
   min-height: 672px;
   padding: 99px 113px 64px 114px;

@@ -85,7 +85,8 @@ export const TabButton = styled.button<{ readonly $active: boolean }>`
 
 export const SortSelect = styled.select`
   appearance: none;
-  width: 147px;
+  width: auto;
+  min-width: 147px;
   height: 50px;
   padding: 0 52px 0 23px;
   border: 1px solid #d9d9d9;
@@ -143,31 +144,32 @@ export const NewDot = styled.span`
 `;
 
 export const Masonry = styled.section`
-  column-count: 4;
-  column-gap: 20px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
 
   @media (max-width: 1480px) {
-    column-count: 3;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   @media (max-width: 1120px) {
-    column-count: 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   @media (max-width: 760px) {
-    column-count: 1;
+    grid-template-columns: 1fr;
   }
 `;
 
 export const FeedbackCard = styled.article`
-  display: inline-block;
+  display: block;
   width: 100%;
-  margin: 0 0 20px;
+  min-height: 211px;
+  margin: 0;
   padding: 25px;
   border: 1px solid #d9d9d9;
   border-radius: 24px;
   background: #ffffff;
-  break-inside: avoid;
 `;
 
 export const ProjectChip = styled.span<{ readonly $color: string }>`

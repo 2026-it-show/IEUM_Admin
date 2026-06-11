@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   createBannedWord,
   deleteBannedWord,
@@ -76,6 +76,12 @@ function BannedWordBoard({
   readonly isPreview: boolean;
 }) {
   const [word, setWord] = useState('');
+  const [localWords, setLocalWords] = useState<readonly BannedWord[]>(words);
+
+  useEffect(() => {
+    setLocalWords(words);
+  }, [words]);
+
   return (
     <S.ManageSection>
       <S.WordForm
@@ -96,7 +102,7 @@ function BannedWordBoard({
         <S.PrimaryButton type="submit">추가</S.PrimaryButton>
       </S.WordForm>
       <S.ContactGrid>
-        {words.map((item) => (
+        {localWords.map((item) => (
           <S.ContactCard key={item.id} type="button">
             <S.CardTitle>{item.word}</S.CardTitle>
             <S.ContactOrg>{item.isActive ? '활성' : '비활성'}</S.ContactOrg>
@@ -105,8 +111,8 @@ function BannedWordBoard({
                 type="button"
                 onClick={async () => {
                   if (isPreview) return;
-                  await updateBannedWord(token, item.id, !item.isActive);
-                  await onChanged();
+                  const updated = await updateBannedWord(token, item.id, !item.isActive);
+                  setLocalWords((current) => current.map((wordItem) => (wordItem.id === updated.id ? updated : wordItem)));
                 }}
               >
                 {item.isActive ? '끄기' : '켜기'}
@@ -116,7 +122,7 @@ function BannedWordBoard({
                 onClick={async () => {
                   if (isPreview) return;
                   await deleteBannedWord(token, item.id);
-                  await onChanged();
+                  setLocalWords((current) => current.filter((wordItem) => wordItem.id !== item.id));
                 }}
               >
                 삭제

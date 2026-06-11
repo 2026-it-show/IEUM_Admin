@@ -1,9 +1,9 @@
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import styled from 'styled-components';
+import { readStoredToken } from '../api/adminApi';
 import { readPreviewRole, type PreviewRole } from '../pages/Admin/previewData';
 
 const PREVIEW_ROLES: readonly { readonly role: PreviewRole; readonly label: string }[] = [
-  { role: 'admin', label: '어드민 UI' },
   { role: 'student', label: '학생 UI' },
   { role: 'teacher', label: '선생님 UI' },
 ] as const;
@@ -12,6 +12,8 @@ export function RolePreviewSwitch() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const currentRole = readPreviewRole(searchParams.get('preview'));
+
+  if (readStoredToken()) return null;
 
   return (
     <SwitchWrap aria-label="테스트 UI 전환">
@@ -25,11 +27,6 @@ export function RolePreviewSwitch() {
           {item.label}
         </SwitchButton>
       ))}
-      {currentRole ? (
-        <SwitchButton type="button" $active={false} onClick={() => navigate('/login')}>
-          실제 로그인
-        </SwitchButton>
-      ) : null}
     </SwitchWrap>
   );
 }
@@ -37,7 +34,7 @@ export function RolePreviewSwitch() {
 const SwitchWrap = styled.nav`
   position: fixed;
   left: 50%;
-  bottom: 18px;
+  top: 14px;
   z-index: 100;
   display: flex;
   max-width: calc(100vw - 24px);

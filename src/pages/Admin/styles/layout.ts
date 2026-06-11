@@ -92,11 +92,13 @@ export const ProfileName = styled.p`
 `;
 
 export const ProfileEmail = styled.p`
-  max-width: 145px;
+  max-width: 155px;
   color: #666666;
   font-size: 12px;
   line-height: 1.5;
-  word-break: break-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 export const LogoutButton = styled.button`
