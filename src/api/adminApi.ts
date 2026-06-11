@@ -181,6 +181,10 @@ export async function updateFeedbackStatus(
   });
 }
 
+export async function deleteFeedback(accessToken: string, id: string): Promise<Feedback> {
+  return updateFeedbackStatus(accessToken, id, 'deleted');
+}
+
 export async function updateContactStatus(
   accessToken: string,
   id: string,
