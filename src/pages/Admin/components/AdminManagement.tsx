@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   createBannedWord,
   deleteBannedWord,
@@ -76,11 +76,14 @@ function BannedWordBoard({
   readonly isPreview: boolean;
 }) {
   const [word, setWord] = useState('');
-  const [localWords, setLocalWords] = useState<readonly BannedWord[]>(words);
-
-  useEffect(() => {
-    setLocalWords(words);
-  }, [words]);
+  const [updatedWords, setUpdatedWords] = useState<ReadonlyMap<string, BannedWord>>(() => new Map());
+  const [deletedWordIds, setDeletedWordIds] = useState<ReadonlySet<string>>(() => new Set());
+  const localWords = useMemo(
+    () => words
+      .filter((item) => !deletedWordIds.has(item.id))
+      .map((item) => updatedWords.get(item.id) ?? item),
+    [deletedWordIds, updatedWords, words],
+  );
 
   return (
     <S.ManageSection>
@@ -112,7 +115,7 @@ function BannedWordBoard({
                 onClick={async () => {
                   if (isPreview) return;
                   const updated = await updateBannedWord(token, item.id, !item.isActive);
-                  setLocalWords((current) => current.map((wordItem) => (wordItem.id === updated.id ? updated : wordItem)));
+                  setUpdatedWords((current) => new Map(current).set(updated.id, updated));
                 }}
               >
                 {item.isActive ? '끄기' : '켜기'}
@@ -122,7 +125,7 @@ function BannedWordBoard({
                 onClick={async () => {
                   if (isPreview) return;
                   await deleteBannedWord(token, item.id);
-                  setLocalWords((current) => current.filter((wordItem) => wordItem.id !== item.id));
+                  setDeletedWordIds((current) => new Set(current).add(item.id));
                 }}
               >
                 삭제

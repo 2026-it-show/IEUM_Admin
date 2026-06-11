@@ -7,6 +7,16 @@ import {
   type ProjectSummary,
 } from '../../../api/adminApi';
 import { CLASS_FILTERS, STAFF_VIEW_LABELS, sortByDate, type SortKey, type StaffViewKey } from '../adminTypes';
+import { downloadContactsCsv } from '../contactExport';
+import {
+  contactGroupKey,
+  filterContacts,
+  filterContactsByClass,
+  groupContactsByTargetStudent,
+  groupSummary,
+  studentDisplayName,
+  type ContactGroup,
+} from '../contactListUtils';
 import { AdminManagement } from './AdminManagement';
 import { ContactDetail } from './ContactDetail';
 import { FeedbackList } from './FeedbackList';
@@ -93,6 +103,9 @@ export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, 
     if (!contact) return;
     void openContact(contact);
   }, [openContact, selectedGroup?.contacts, selectedIndex]);
+  const downloadContacts = useCallback(() => {
+    downloadContactsCsv(contacts, projectsById, classFilter);
+  }, [classFilter, contacts, projectsById]);
 
   if (selectedContact) {
     return (
@@ -149,7 +162,14 @@ export function StaffDashboard({ snapshot, view, setView, sort, setSort, token, 
               ))}
             </S.TabGroup>
           )}
-          <ModeSwitch view={view} setView={setView} />
+          <S.ActionButtons>
+            {view === 'contacts' ? (
+              <S.ExportButton type="button" onClick={downloadContacts}>
+                엑셀 다운로드
+              </S.ExportButton>
+            ) : null}
+            <ModeSwitch view={view} setView={setView} />
+          </S.ActionButtons>
         </S.ActionStrip>
         {view === 'contacts' ? (
           <ContactList
@@ -203,75 +223,4 @@ function ContactList({
       ))}
     </S.ContactGrid>
   );
-}
-
-function filterContactsByClass(
-  contacts: readonly Contact[],
-  classFilter: string,
-): readonly Contact[] {
-  if (classFilter === '전체') return contacts;
-  const classDigit = classFilter.charAt(0);
-  return contacts.filter(
-    (contact) => studentClassDigit(contact.targetMemberUser?.name) === classDigit,
-  );
-}
-
-// 학번 형식 "3515 정지영"에서 둘째 자리가 반
-function studentClassDigit(name: string | undefined): string | null {
-  const matched = name?.trim().match(/^\d(\d)\d{2}\b/);
-  return matched?.[1] ?? null;
-}
-
-function filterContacts(
-  contacts: readonly Contact[],
-  projectsById: ReadonlyMap<string, ProjectSummary>,
-  query: string,
-): readonly Contact[] {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return contacts;
-  return contacts.filter((contact) => {
-    const project = projectsById.get(contact.projectId);
-    return [contact.targetMemberUser?.name, contact.name, contact.organization, contact.email, contact.phone, project?.serviceName, project?.teamName]
-      .filter(Boolean)
-      .some((value) => value?.toLowerCase().includes(normalized));
-  });
-}
-
-type ContactGroup = {
-  readonly key: string;
-  readonly contacts: readonly Contact[];
-};
-
-function groupContactsByTargetStudent(contacts: readonly Contact[]): readonly ContactGroup[] {
-  const groups = new Map<string, Contact[]>();
-  for (const contact of contacts) {
-    const key = contactGroupKey(contact);
-    const group = groups.get(key);
-    if (group) {
-      group.push(contact);
-      continue;
-    }
-    groups.set(key, [contact]);
-  }
-  return [...groups.entries()].map(([key, groupContacts]) => ({
-    key,
-    contacts: groupContacts,
-  }));
-}
-
-function contactGroupKey(contact: Contact): string {
-  return contact.targetMemberUserId || contact.id;
-}
-
-function studentDisplayName(contact: Contact): string {
-  return contact.targetMemberUser?.name ?? '학생';
-}
-
-function groupSummary(
-  contacts: readonly Contact[],
-  projectsById: ReadonlyMap<string, ProjectSummary>,
-): string {
-  const first = contacts[0];
-  const firstName = first.organization ?? projectsById.get(first.projectId)?.serviceName ?? '-';
-  return contacts.length > 1 ? `${firstName} 외 ${contacts.length - 1}건` : firstName;
 }
