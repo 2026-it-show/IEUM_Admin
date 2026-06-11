@@ -11,6 +11,9 @@ export type AdminUser = {
 export type CursorPage<T> = {
   readonly items: readonly T[];
   readonly nextCursor: string | null;
+  readonly total?: number;
+  readonly activeTotal?: number;
+  readonly inactiveTotal?: number;
 };
 
 export type StatusCounts = Record<string, number | undefined>;
@@ -157,26 +160,14 @@ export async function fetchAdminSnapshot(accessToken: string, knownUser?: AdminU
     request<CursorPage<Feedback>>('/admin/feedback?limit=80', accessToken),
     request<CursorPage<Contact>>('/admin/contacts?limit=80', accessToken),
     request<CursorPage<AdminUser>>('/admin/users?limit=80', accessToken),
-    fetchAllBannedWords(accessToken),
+    fetchBannedWords(accessToken),
   ]);
   return { user, dashboard, projects, feedback, contacts, users, bannedWords };
 }
 
-async function fetchAllBannedWords(accessToken: string): Promise<CursorPage<BannedWord>> {
-  const items: BannedWord[] = [];
-  let cursor: string | null = null;
-  do {
-    const query = new URLSearchParams({ limit: '80' });
-    if (cursor) query.set('cursor', cursor);
-    const page = await request<CursorPage<BannedWord>>(
-      `/admin/banned-words?${query.toString()}`,
-      accessToken,
-    );
-    items.push(...page.items);
-    cursor = page.nextCursor;
-  } while (cursor);
-
-  return { items, nextCursor: null };
+export async function fetchBannedWords(accessToken: string, page = 1, limit = 50): Promise<CursorPage<BannedWord>> {
+  const query = new URLSearchParams({ page: String(page), limit: String(limit) });
+  return request<CursorPage<BannedWord>>(`/admin/banned-words?${query.toString()}`, accessToken);
 }
 
 export async function updateFeedbackStatus(

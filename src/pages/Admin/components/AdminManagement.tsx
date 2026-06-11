@@ -2,13 +2,18 @@ import { useMemo, useState } from 'react';
 import {
   createBannedWord,
   deleteBannedWord,
+  fetchBannedWords,
   updateBannedWord,
   type AdminSnapshot,
   type BannedWord,
+  type CursorPage,
   type ProjectSummary,
 } from '../../../api/adminApi';
 import { ADMIN_MANAGE_LABELS, projectColor, roleLabel, type AdminManageKey } from '../adminTypes';
 import * as S from '../AdminDashboard.styled';
+
+const bannedWordPageSizes = [10, 50, 100, 300] as const;
+type BannedWordPageSize = (typeof bannedWordPageSizes)[number];
 
 type AdminManagementProps = {
   readonly snapshot: AdminSnapshot;
@@ -40,7 +45,7 @@ export function AdminManagement({ snapshot, token, onChanged, isPreview = false 
           ))}
         </S.ContactGrid>
       ) : null}
-      {view === 'bannedWords' ? <BannedWordBoard words={snapshot.bannedWords.items} token={token} onChanged={onChanged} isPreview={isPreview} /> : null}
+      {view === 'bannedWords' ? <BannedWordBoard initialPage={snapshot.bannedWords} token={token} onChanged={onChanged} isPreview={isPreview} /> : null}
     </S.ManageSection>
   );
 }
@@ -65,28 +70,60 @@ function ProjectBoard({ projects }: { readonly projects: readonly ProjectSummary
 }
 
 function BannedWordBoard({
-  words,
+  initialPage,
   token,
   onChanged,
   isPreview,
 }: {
-  readonly words: readonly BannedWord[];
+  readonly initialPage: CursorPage<BannedWord>;
   readonly token: string;
   readonly onChanged: () => Promise<void>;
   readonly isPreview: boolean;
 }) {
   const [word, setWord] = useState('');
+  const [page, setPage] = useState<CursorPage<BannedWord>>(initialPage);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<BannedWordPageSize>(50);
+  const [isPageLoading, setIsPageLoading] = useState(false);
   const [updatedWords, setUpdatedWords] = useState<ReadonlyMap<string, BannedWord>>(() => new Map());
   const [deletedWordIds, setDeletedWordIds] = useState<ReadonlySet<string>>(() => new Set());
+
   const localWords = useMemo(
-    () => words
+    () => page.items
       .filter((item) => !deletedWordIds.has(item.id))
       .map((item) => updatedWords.get(item.id) ?? item),
-    [deletedWordIds, updatedWords, words],
+    [deletedWordIds, page.items, updatedWords],
   );
+  const totalWordCount = page.total ?? localWords.length;
+  const activeWordCount = page.activeTotal ?? localWords.filter((item) => item.isActive).length;
+  const inactiveWordCount = page.inactiveTotal ?? totalWordCount - activeWordCount;
+  const totalPages = Math.max(1, Math.ceil(totalWordCount / pageSize));
+  const startIndex = totalWordCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endIndex = Math.min(totalWordCount, (currentPage - 1) * pageSize + localWords.length);
+  const visiblePages = createVisiblePages(currentPage, totalPages);
+
+  const loadPage = async (nextPage: number, nextPageSize = pageSize): Promise<void> => {
+    if (isPreview || isPageLoading) return;
+    setIsPageLoading(true);
+    try {
+      const nextPageData = await fetchBannedWords(token, nextPage, nextPageSize);
+      setPage(nextPageData);
+      setCurrentPage(nextPage);
+      setPageSize(nextPageSize);
+      setUpdatedWords(new Map());
+      setDeletedWordIds(new Set());
+    } finally {
+      setIsPageLoading(false);
+    }
+  };
 
   return (
     <S.ManageSection>
+      <S.WordSummary aria-label="금칙어 현황">
+        <span>총 {totalWordCount.toLocaleString()}개</span>
+        <span>활성 {activeWordCount.toLocaleString()}개</span>
+        <span>비활성 {inactiveWordCount.toLocaleString()}개</span>
+      </S.WordSummary>
       <S.WordForm
         onSubmit={async (event) => {
           event.preventDefault();
@@ -97,16 +134,37 @@ function BannedWordBoard({
             return;
           }
           await createBannedWord(token, trimmed);
+          const firstPage = await fetchBannedWords(token, 1, pageSize);
           setWord('');
+          setPage(firstPage);
+          setCurrentPage(1);
+          setUpdatedWords(new Map());
+          setDeletedWordIds(new Set());
           await onChanged();
         }}
       >
         <S.WordInput value={word} onChange={(event) => setWord(event.target.value)} placeholder="금칙어 추가" />
         <S.PrimaryButton type="submit">추가</S.PrimaryButton>
       </S.WordForm>
+      <S.PageSizeRow>
+        <span>페이지당</span>
+        <S.PageSizeSelect
+          value={pageSize}
+          disabled={isPageLoading}
+          onChange={(event) => {
+            void loadPage(1, Number(event.target.value) as BannedWordPageSize);
+          }}
+        >
+          {bannedWordPageSizes.map((size) => (
+            <option key={size} value={size}>
+              {size}개씩 보기
+            </option>
+          ))}
+        </S.PageSizeSelect>
+      </S.PageSizeRow>
       <S.ContactGrid>
         {localWords.map((item) => (
-          <S.ContactCard key={item.id} type="button">
+          <S.WordCard key={item.id}>
             <S.CardTitle>{item.word}</S.CardTitle>
             <S.ContactOrg>{item.isActive ? '활성' : '비활성'}</S.ContactOrg>
             <S.CardFooter>
@@ -131,9 +189,65 @@ function BannedWordBoard({
                 삭제
               </S.MiniButton>
             </S.CardFooter>
-          </S.ContactCard>
+          </S.WordCard>
         ))}
       </S.ContactGrid>
+      <S.PaginationBar aria-label="금칙어 페이지네이션">
+        <S.PageButton
+          type="button"
+          disabled={currentPage === 1 || isPageLoading}
+          onClick={() => {
+            void loadPage(currentPage - 1);
+          }}
+        >
+          이전
+        </S.PageButton>
+        {visiblePages.map((item, index) => (
+          item === 'ellipsis' ? (
+            <S.PageEllipsis key={`ellipsis-${index}`}>...</S.PageEllipsis>
+          ) : (
+            <S.PageNumberButton
+              key={item}
+              type="button"
+              $active={item === currentPage}
+              disabled={isPageLoading}
+              onClick={() => {
+                void loadPage(item);
+              }}
+            >
+              {item}
+            </S.PageNumberButton>
+          )
+        ))}
+        <S.PageInfo>
+          {startIndex.toLocaleString()}-{endIndex.toLocaleString()} / {totalWordCount.toLocaleString()}
+        </S.PageInfo>
+        <S.PageButton
+          type="button"
+          disabled={currentPage >= totalPages || isPageLoading}
+          onClick={() => {
+            void loadPage(currentPage + 1);
+          }}
+        >
+          다음
+        </S.PageButton>
+      </S.PaginationBar>
     </S.ManageSection>
   );
+}
+
+function createVisiblePages(currentPage: number, totalPages: number): readonly (number | 'ellipsis')[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages = new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1].filter((page) => page >= 1 && page <= totalPages));
+  const sortedPages = [...pages].sort((left, right) => left - right);
+  return sortedPages.flatMap((page, index) => {
+    const previousPage = sortedPages[index - 1];
+    if (previousPage !== undefined && page - previousPage > 1) {
+      return ['ellipsis', page] as const;
+    }
+    return [page] as const;
+  });
 }
