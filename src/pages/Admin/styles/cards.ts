@@ -83,6 +83,38 @@ export const TabButton = styled.button<{ readonly $active: boolean }>`
   }
 `;
 
+export const ActionButtons = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  @media (max-width: 900px) {
+    justify-content: stretch;
+  }
+`;
+
+export const ExportButton = styled.button`
+  min-height: 46px;
+  padding: 0 24px;
+  border: 1px solid #e74e5b;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #e74e5b;
+  font-size: 18px;
+  white-space: nowrap;
+
+  &:hover {
+    background: #fff3f4;
+  }
+
+  @media (max-width: 620px) {
+    flex: 1 1 100%;
+    font-size: 16px;
+  }
+`;
+
 export const SortSelect = styled.select`
   appearance: none;
   width: auto;
