@@ -155,10 +155,3 @@ export const PageEllipsis = styled.span`
   font-size: 16px;
   text-align: center;
 `;
-
-export const PageInfo = styled.span`
-  min-width: 150px;
-  color: #555555;
-  font-size: 16px;
-  text-align: center;
-`;

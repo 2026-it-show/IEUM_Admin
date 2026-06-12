@@ -98,8 +98,6 @@ function BannedWordBoard({
   const activeWordCount = page.activeTotal ?? localWords.filter((item) => item.isActive).length;
   const inactiveWordCount = page.inactiveTotal ?? totalWordCount - activeWordCount;
   const totalPages = Math.max(1, Math.ceil(totalWordCount / pageSize));
-  const startIndex = totalWordCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const endIndex = Math.min(totalWordCount, (currentPage - 1) * pageSize + localWords.length);
   const visiblePages = createVisiblePages(currentPage, totalPages);
 
   const loadPage = async (nextPage: number, nextPageSize = pageSize): Promise<void> => {
@@ -219,9 +217,6 @@ function BannedWordBoard({
             </S.PageNumberButton>
           )
         ))}
-        <S.PageInfo>
-          {startIndex.toLocaleString()}-{endIndex.toLocaleString()} / {totalWordCount.toLocaleString()}
-        </S.PageInfo>
         <S.PageButton
           type="button"
           disabled={currentPage >= totalPages || isPageLoading}
